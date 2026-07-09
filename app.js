@@ -775,14 +775,30 @@ function ledgerForm() {
   const acctPick = state.accounts.map(a => `<span class="chip ${ledAcct === a.id ? 'on' : ''}" data-act="led-acct" data-id="${a.id}">${a.icon} ${esc(a.name)}</span>`).join('');
   const editing = sheetCtx && sheetCtx.id;
   const edCh = editing ? ((state.ledger.find(x => x.id === sheetCtx.id) || {}).channel || '') : '';
+  const showChannel = ledCat === '购物' || edCh;
+  const channelHTML = showChannel ? `<div id="led-ch-wrap"><label class="f">购物平台</label><div class="chips ch-row" id="led-ch-row">${channelChips(edCh)}</div></div>` : '';
+  const delBtn = editing ? `<button class="btn danger" data-act="del-led-form" data-id="${sheetCtx.id}">删除</button>` : '';
   return `<div class="chips" style="margin-bottom:10px"><span class="chip led-typechip ${ledType === 'out' ? 'on' : ''}" data-act="led-type" data-t="out">支出</span><span class="chip led-typechip ${ledType === 'in' ? 'on' : ''}" data-act="led-type" data-t="in">收入</span></div>
     <input id="l-amt" class="amount-big" type="number" inputmode="decimal" placeholder="0.00" />
     <div class="cat-grid">${grid}</div>
     <label class="f">账户</label><div class="acct-pick">${acctPick}</div>
     <label class="f">日期</label><input id="l-date" type="date" value="${todayStr()}" />
-    <label class="f">购物平台</label><div class="chips ch-row" id="led-ch-row">${channelChips(edCh)}</div>
+    ${channelHTML}
     <label class="f">备注</label><input id="l-note" placeholder="如：午餐 / 地铁 / 工资" />
-    <div class="sheet-foot">${editing ? `<button class="btn danger" data-act="del-led-form" data-id="${sheetCtx.id}">删除</button>` : ''}<button class="btn ghost" data-act="sheet-close">取消</button><button class="btn primary" data-act="save-led">${editing ? '保存修改' : '保存'}</button></div>`;
+    <div class="sheet-foot">${delBtn}<button class="btn ghost" data-act="save-led-more">再记</button><button class="btn primary" data-act="save-led">${editing ? '保存修改' : '保存'}</button></div>`;
+}
+function rerenderLedgerForm() {
+  const amt = (document.getElementById('l-amt') || {}).value || '';
+  const date = (document.getElementById('l-date') || {}).value || '';
+  const note = (document.getElementById('l-note') || {}).value || '';
+  const sb = document.getElementById('sheet-body');
+  if (sb) {
+    sb.innerHTML = ledgerForm();
+    setTimeout(() => {
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      set('l-amt', amt); set('l-date', date); set('l-note', note);
+    }, 0);
+  }
 }
 function mediaForm() {
   const kindChips = Object.keys(MEDIA_KINDS).map(k => `<span class="chip ${mediaKind === k ? 'on' : ''}" data-act="media-kind" data-k="${k}">${MEDIA_KINDS[k].icon} ${MEDIA_KINDS[k].name}</span>`).join('');
@@ -1037,7 +1053,7 @@ function savePrice() {
   else { state.prices.push(Object.assign({ id: uid() }, data)); toast('已记录价格', name); }
   save(); closeSheet(); render();
 }
-function saveLed() {
+function saveLed(stayOpen) {
   const amt = parseFloat(document.getElementById('l-amt').value); if (!(amt > 0)) return toast('请输入正确金额');
   if (!ledAcct) return toast('请选择账户');
   const chEl = document.querySelector('#led-ch-row .chip.on');
@@ -1054,7 +1070,20 @@ function saveLed() {
     const a = acct(ledAcct); if (a) a.balance += (ledType === 'in' ? amt : -amt);
     toast('已记录', (ledType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
   }
-  recordNet(); save(); closeSheet(); render();
+  recordNet(); save();
+  if (stayOpen) {
+    const oldDate = document.getElementById('l-date').value;
+    sheetCtx = { kind: 'ledger', id: null };
+    const sb = document.getElementById('sheet-body');
+    if (sb) {
+      sb.innerHTML = ledgerForm();
+      setTimeout(() => { const el = document.getElementById('l-date'); if (el) el.value = oldDate; }, 0);
+    }
+    toast('继续记下一笔');
+  } else {
+    closeSheet();
+  }
+  render();
 }
 function saveMedia() {
   const title = document.getElementById('m-title').value.trim(); if (!title) return toast('请填写名称');
@@ -1222,8 +1251,8 @@ const ACTIONS = {
   'ph-add': el => openPriceForm(null, el.dataset.name),
   'ph-del': el => { const id = el.dataset.id; askConfirm('删除确认', '删除这条价格记录？', () => { state.prices = state.prices.filter(x => x.id !== id); save(); closeSheet(); render(); }); },
 
-  'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; const sb = document.getElementById('sheet-body'); if (sb) sb.innerHTML = ledgerForm(); },
-  'led-cat': el => { ledCat = el.dataset.cat; document.querySelectorAll('#sheet-body .cat').forEach(c => c.classList.toggle('on', c.dataset.cat === ledCat)); },
+  'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; rerenderLedgerForm(); },
+  'led-cat': el => { ledCat = el.dataset.cat; rerenderLedgerForm(); },
   'led-acct': el => { ledAcct = el.dataset.id; document.querySelectorAll('#sheet-body .acct-pick .chip').forEach(c => c.classList.toggle('on', c.dataset.id === ledAcct)); },
   'media-kind': el => { mediaKind = el.dataset.k; document.querySelectorAll('#sheet-body [data-act="media-kind"]').forEach(c => c.classList.toggle('on', c.dataset.k === mediaKind)); },
 
@@ -1234,6 +1263,7 @@ const ACTIONS = {
   'save-note': () => saveNote(),
   'save-price': () => savePrice(),
   'save-led': () => saveLed(),
+  'save-led-more': () => saveLed(true),
   'save-media': () => saveMedia(),
   'save-todo': () => saveTodo(),
   'save-rem': () => saveRem(),

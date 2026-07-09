@@ -276,6 +276,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .sheet-body { padding-top: 4px; }
 .sheet-foot { display: flex; gap: 8px; margin-top: 14px; }
 .sheet-foot .btn { flex: 1; }
+.sheet-foot .btn.primary { flex: 2; }
 .mood-row .moodchip { font-size: 20px; }
 
 /* 主题切换开关行 */
