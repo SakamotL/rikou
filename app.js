@@ -791,7 +791,7 @@ function ledgerForm() {
     <div class="cat-grid">${grid}</div>
     <div class="led-amt-row">
       <input id="l-note" class="led-note" placeholder="点此输入备注..." value="${esc(noteVal)}" />
-      <div class="led-amt" id="l-amt">${ledExpr}</div>
+      <div class="led-amt" id="l-amt">${showAmt(ledExpr)}</div>
     </div>
     <div class="led-quick">
       <span class="quick-chip ${ledFocus === 'acct' ? 'on' : ''}" data-act="led-focus-acct">${acctIcon} ${esc(acctName)}</span>
@@ -1107,6 +1107,14 @@ function savePrice() {
   else { state.prices.push(Object.assign({ id: uid() }, data)); toast('已记录价格', name); }
   save(); closeSheet(); render();
 }
+function showAmt(expr) {
+  // 表达式过程（含 +/-）原样显示，让用户看到计算步骤
+  if (/[+\-]/.test(expr)) return expr;
+  // 纯数字（整数或带小数）一律显示两位小数，贴近钱迹
+  if (/^\d+(\.\d+)?$/.test(expr)) return Number(expr).toFixed(2);
+  // 输入中途（如刚按下小数点 "12."）保持原样以便继续输入
+  return expr;
+}
 function evalExpr(expr) {
   if (!expr || expr === '0') return 0;
   const m = expr.match(/^(-?\d+(?:\.\d+)?)([+\-])(\d+(?:\.\d+)?)$/);
@@ -1346,7 +1354,7 @@ const ACTIONS = {
         if (cur.length < 9) ledExpr += k;
       }
     }
-    const d = document.getElementById('l-amt'); if (d) d.textContent = ledExpr;
+    const d = document.getElementById('l-amt'); if (d) d.textContent = showAmt(ledExpr);
   },
   'led-focus-acct': () => { ledFocus = ledFocus === 'acct' ? null : 'acct'; rerenderLedgerForm(); },
   'led-focus-date': () => { ledFocus = ledFocus === 'date' ? null : 'date'; rerenderLedgerForm(); },
