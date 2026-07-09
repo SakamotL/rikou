@@ -236,7 +236,7 @@ let prevView = 'today';
 let libType = 'all';
 let libSearch = '';
 let sheetCtx = null;
-let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledExpr = '0';
+let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledExpr = '0', ledChannel = '';
 let qType = 'out';
 if (state.accounts[0]) ledAcct = state.accounts[0].id;
 let mediaKind = 'book';
@@ -775,12 +775,17 @@ function ledgerForm() {
   const acctPick = state.accounts.map(a => `<span class="chip ${ledAcct === a.id ? 'on' : ''}" data-act="led-acct" data-id="${a.id}">${a.icon} ${esc(a.name)}</span>`).join('');
   const editing = sheetCtx && sheetCtx.id;
   const edRec = editing ? state.ledger.find(x => x.id === sheetCtx.id) : null;
-  const edCh = editing ? (edRec.channel || '') : '';
-  const showChannel = ledCat === '购物' || edCh;
   const dateVal = editing ? edRec.date : todayStr();
   const noteVal = editing ? (edRec.note || '') : '';
   const catIcon = (CATS[ledType].find(([n]) => n === ledCat) || ['', '📦'])[1];
-  const channelHTML = showChannel ? `<div id="led-ch-wrap"><label class="f">购物平台</label><div class="chips ch-row" id="led-ch-row">${channelChips(edCh)}</div></div>` : '';
+  const showChannel = ledCat === '购物' || ledChannel;
+  const channelHTML = showChannel ? `<div id="led-ch-wrap"><div class="chips ch-row" id="led-ch-row">${channelChips(ledChannel)}</div></div>` : '';
+  const acctObj = ledAcct ? state.accounts.find(a => a.id === ledAcct) : null;
+  const acctName = acctObj ? acctObj.name : '账户';
+  const acctIcon = acctObj ? acctObj.icon : '💳';
+  const dateShort = dateVal.slice(5);
+  const dateText = dateVal === todayStr() ? '今天' : dateShort;
+  const channelText = ledChannel || '平台';
   return `<div class="led-tabs">
       <span class="${ledType === 'out' ? 'on' : ''}" data-act="led-type" data-t="out">支出</span>
       <span class="${ledType === 'in' ? 'on' : ''}" data-act="led-type" data-t="in">收入</span>
@@ -791,35 +796,37 @@ function ledgerForm() {
       <div class="led-amt" id="l-amt">${ledExpr}</div>
     </div>
     <div class="led-quick">
-      <span class="quick-chip" data-act="led-focus-acct">账户</span>
-      <span class="quick-chip" data-act="led-focus-date">${dateVal}</span>
+      <span class="quick-chip" data-act="led-focus-acct">${acctIcon} ${esc(acctName)}</span>
+      <span class="quick-chip" data-act="led-focus-date">${dateText}</span>
       <span class="quick-chip" data-act="led-focus-cat">${catIcon} ${ledCat}</span>
-      ${showChannel ? '<span class="quick-chip" data-act="led-focus-channel">平台</span>' : ''}
+      ${showChannel ? `<span class="quick-chip" data-act="led-focus-channel">${channelText}</span>` : ''}
     </div>
     ${editing ? `<div class="led-edit-bar"><button type="button" class="led-del" data-act="del-led-form" data-id="${sheetCtx.id}">删除这笔</button></div>` : ''}
-    <label class="f">账户</label><div class="acct-pick">${acctPick}</div>
-    <label class="f">日期</label><input id="l-date" type="date" value="${dateVal}" />
+    <div class="led-strip">
+      <div class="acct-pick">${acctPick}</div>
+      <input id="l-date" type="date" value="${dateVal}" />
+    </div>
     ${channelHTML}
     ${kpadHTML()}`;
 }
 function kpadHTML() {
   return `<div class="kpad-4">
-    <button type="button" data-act="kpad" data-k="1">1</button>
-    <button type="button" data-act="kpad" data-k="2">2</button>
-    <button type="button" data-act="kpad" data-k="3">3</button>
-    <button type="button" data-act="kpad" data-k="del">⌫</button>
-    <button type="button" data-act="kpad" data-k="4">4</button>
-    <button type="button" data-act="kpad" data-k="5">5</button>
-    <button type="button" data-act="kpad" data-k="6">6</button>
-    <button type="button" data-act="kpad" data-k="-">－</button>
-    <button type="button" data-act="kpad" data-k="7">7</button>
-    <button type="button" data-act="kpad" data-k="8">8</button>
-    <button type="button" data-act="kpad" data-k="9">9</button>
-    <button type="button" data-act="kpad" data-k="+">＋</button>
-    <button type="button" data-act="kpad" data-k="more">再记</button>
-    <button type="button" data-act="kpad" data-k="0">0</button>
-    <button type="button" data-act="kpad" data-k=".">.</button>
-    <button type="button" data-act="kpad" data-k="save" class="save">保存</button>
+    <button type="button" class="num" data-act="kpad" data-k="1">1</button>
+    <button type="button" class="num" data-act="kpad" data-k="2">2</button>
+    <button type="button" class="num" data-act="kpad" data-k="3">3</button>
+    <button type="button" class="del" data-act="kpad" data-k="del">⌫</button>
+    <button type="button" class="num" data-act="kpad" data-k="4">4</button>
+    <button type="button" class="num" data-act="kpad" data-k="5">5</button>
+    <button type="button" class="num" data-act="kpad" data-k="6">6</button>
+    <button type="button" class="op" data-act="kpad" data-k="-">－</button>
+    <button type="button" class="num" data-act="kpad" data-k="7">7</button>
+    <button type="button" class="num" data-act="kpad" data-k="8">8</button>
+    <button type="button" class="num" data-act="kpad" data-k="9">9</button>
+    <button type="button" class="op" data-act="kpad" data-k="+">＋</button>
+    <button type="button" class="more" data-act="kpad" data-k="more">再记</button>
+    <button type="button" class="num" data-act="kpad" data-k="0">0</button>
+    <button type="button" class="num" data-act="kpad" data-k=".">.</button>
+    <button type="button" class="save" data-act="kpad" data-k="save">保存</button>
   </div>`;
 }
 function rerenderLedgerForm() {
@@ -831,6 +838,8 @@ function rerenderLedgerForm() {
     setTimeout(() => {
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
       set('l-date', date); set('l-note', note);
+      const chip = document.querySelector('#sheet-body [data-act="led-focus-date"]');
+      if (chip) chip.textContent = date === todayStr() ? '今天' : date.slice(5);
     }, 0);
   }
 }
@@ -939,11 +948,11 @@ function openPriceForm(id, presetName) {
 }
 function openLedgerForm(id) {
   const editing = id ? state.ledger.find(l => l.id === id) : null;
-  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); }
-  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; }
+  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); ledChannel = editing.channel || ''; }
+  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; }
   sheetCtx = { kind: 'ledger', id };
   openSheet('记账' + (id ? ' · 编辑' : ' · 新增'), ledgerForm());
-  if (editing) setTimeout(() => { const d = document.getElementById('l-date'); if (d) d.value = editing.date; const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; const cr = document.getElementById('led-ch-row'); if (cr && editing.channel) cr.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.ch === editing.channel)); }, 0);
+  if (editing) setTimeout(() => { const d = document.getElementById('l-date'); if (d) d.value = editing.date; const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; }, 0);
 }
 function openMediaForm(id) {
   const editing = id ? state.media.find(m => m.id === id) : null;
@@ -1269,7 +1278,12 @@ const ACTIONS = {
   'edit-acct': el => openAccountForm(el.dataset.id),
   'del-led-form': el => { delLed(el.dataset.id); closeSheet(); },
   'del-acct-led': el => { delLed(el.dataset.id); if (sheetCtx && sheetCtx.kind === 'acct-detail') openAccountDetail(sheetCtx.id); else render(); },
-  'ch-sel': el => document.querySelectorAll('#sheet-body .ch-sel').forEach(c => c.classList.toggle('on', c.dataset.ch === el.dataset.ch)),
+  'ch-sel': el => {
+    document.querySelectorAll('#sheet-body .ch-sel').forEach(c => c.classList.toggle('on', c.dataset.ch === el.dataset.ch));
+    ledChannel = el.dataset.ch;
+    const chip = document.querySelector('#sheet-body .led-quick [data-act="led-focus-channel"]');
+    if (chip) chip.textContent = ledChannel;
+  },
 
   'lib-choose': () => {
     const body = CONTENT_TYPES.map(tp => `<div class="item" data-act="lib-add" data-t="${tp.id}" style="cursor:pointer"><span style="font-size:20px">${tp.icon}</span><div style="flex:1"><div class="title">${tp.name}</div></div><span class="muted">＋</span></div>`).join('');
@@ -1295,7 +1309,13 @@ const ACTIONS = {
 
   'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; rerenderLedgerForm(); },
   'led-cat': el => { ledCat = el.dataset.cat; rerenderLedgerForm(); },
-  'led-acct': el => { ledAcct = el.dataset.id; document.querySelectorAll('#sheet-body .acct-pick .chip').forEach(c => c.classList.toggle('on', c.dataset.id === ledAcct)); },
+  'led-acct': el => {
+    ledAcct = el.dataset.id;
+    document.querySelectorAll('#sheet-body .acct-pick .chip').forEach(c => c.classList.toggle('on', c.dataset.id === ledAcct));
+    const a = state.accounts.find(x => x.id === ledAcct);
+    const chip = document.querySelector('#sheet-body .led-quick [data-act="led-focus-acct"]');
+    if (chip && a) chip.textContent = a.icon + ' ' + a.name;
+  },
   'kpad': el => {
     const k = el.dataset.k;
     if (k === 'save') { saveLed(); return; }
@@ -1500,7 +1520,10 @@ function handleChange(e) {
   if (t.id === 'importFile') { doImport(t.files[0]); return; }
   if (t.dataset && t.dataset.act === 'set-budget') { state.settings.budget = parseFloat(t.value) || 0; save(); return; }
   if (t.id === 'r-repeat') { const d = document.getElementById('r-days'); if (d) d.style.display = t.value === 'custom' ? 'flex' : 'none'; }
-  if (t.id === 'l-date') { const chip = document.querySelector('#sheet-body [data-act="led-focus-date"]'); if (chip) chip.textContent = t.value; }
+  if (t.id === 'l-date') {
+    const chip = document.querySelector('#sheet-body [data-act="led-focus-date"]');
+    if (chip) chip.textContent = t.value === todayStr() ? '今天' : t.value.slice(5);
+  }
 }
 
 /* ---------- 启动 ---------- */
