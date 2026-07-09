@@ -1,0 +1,7 @@
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+*.log
+
+# 本地服务进程文件（如运行 python/node 起的临时 pid）
+*.pid

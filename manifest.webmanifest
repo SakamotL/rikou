@@ -1,0 +1,17 @@
+{
+  "name": "日课 · 个人生活系统",
+  "short_name": "日课",
+  "description": "完全个人的生活助手：提醒、长期主义打卡、日记、记账",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#3a8ee6",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

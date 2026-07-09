@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#3a8ee6"/>
+  <text x="256" y="320" font-size="200" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-weight="800" fill="#ffffff" text-anchor="middle">日</text>
+  <circle cx="256" cy="120" r="26" fill="#5aa8ec"/>
+</svg>
