@@ -237,6 +237,7 @@ let libType = 'all';
 let libSearch = '';
 let sheetCtx = null;
 let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledExpr = '0', ledChannel = '';
+let ledFocus = null; // 'acct' | 'date' | 'channel' | null
 let qType = 'out';
 if (state.accounts[0]) ledAcct = state.accounts[0].id;
 let mediaKind = 'book';
@@ -772,19 +773,16 @@ function priceForm(edit) {
 }
 function ledgerForm() {
   const grid = CATS[ledType].map(([n, em]) => `<div class="cat ${ledCat === n ? 'on' : ''}" data-act="led-cat" data-cat="${n}"><span class="emo">${em}</span><span>${n}</span></div>`).join('');
-  const acctPick = state.accounts.map(a => `<span class="chip ${ledAcct === a.id ? 'on' : ''}" data-act="led-acct" data-id="${a.id}">${a.icon} ${esc(a.name)}</span>`).join('');
   const editing = sheetCtx && sheetCtx.id;
   const edRec = editing ? state.ledger.find(x => x.id === sheetCtx.id) : null;
   const dateVal = editing ? edRec.date : todayStr();
   const noteVal = editing ? (edRec.note || '') : '';
   const catIcon = (CATS[ledType].find(([n]) => n === ledCat) || ['', '📦'])[1];
   const showChannel = ledCat === '购物' || ledChannel;
-  const channelHTML = showChannel ? `<div id="led-ch-wrap"><div class="chips ch-row" id="led-ch-row">${channelChips(ledChannel)}</div></div>` : '';
   const acctObj = ledAcct ? state.accounts.find(a => a.id === ledAcct) : null;
   const acctName = acctObj ? acctObj.name : '账户';
   const acctIcon = acctObj ? acctObj.icon : '💳';
-  const dateShort = dateVal.slice(5);
-  const dateText = dateVal === todayStr() ? '今天' : dateShort;
+  const dateText = dateVal === todayStr() ? '今天' : dateVal.slice(5);
   const channelText = ledChannel || '平台';
   return `<div class="led-tabs">
       <span class="${ledType === 'out' ? 'on' : ''}" data-act="led-type" data-t="out">支出</span>
@@ -796,18 +794,31 @@ function ledgerForm() {
       <div class="led-amt" id="l-amt">${ledExpr}</div>
     </div>
     <div class="led-quick">
-      <span class="quick-chip" data-act="led-focus-acct">${acctIcon} ${esc(acctName)}</span>
-      <span class="quick-chip" data-act="led-focus-date">${dateText}</span>
-      <span class="quick-chip" data-act="led-focus-cat">${catIcon} ${ledCat}</span>
-      ${showChannel ? `<span class="quick-chip" data-act="led-focus-channel">${channelText}</span>` : ''}
+      <span class="quick-chip ${ledFocus === 'acct' ? 'on' : ''}" data-act="led-focus-acct">${acctIcon} ${esc(acctName)}</span>
+      <span class="quick-chip ${ledFocus === 'date' ? 'on' : ''}" data-act="led-focus-date">${dateText}</span>
+      <span class="quick-chip ${ledFocus === 'cat' ? 'on' : ''}" data-act="led-focus-cat">${catIcon} ${ledCat}</span>
+      ${showChannel ? `<span class="quick-chip ${ledFocus === 'channel' ? 'on' : ''}" data-act="led-focus-channel">${channelText}</span>` : ''}
     </div>
     ${editing ? `<div class="led-edit-bar"><button type="button" class="led-del" data-act="del-led-form" data-id="${sheetCtx.id}">删除这笔</button></div>` : ''}
-    <div class="led-strip">
-      <div class="acct-pick">${acctPick}</div>
-      <input id="l-date" type="date" value="${dateVal}" />
-    </div>
-    ${channelHTML}
+    ${ledPanelHTML()}
     ${kpadHTML()}`;
+}
+function ledPanelHTML() {
+  if (!ledFocus) return '';
+  const editing = sheetCtx && sheetCtx.id;
+  const edRec = editing ? state.ledger.find(x => x.id === sheetCtx.id) : null;
+  if (ledFocus === 'acct') {
+    const acctPick = state.accounts.map(a => `<span class="chip ${ledAcct === a.id ? 'on' : ''}" data-act="led-acct" data-id="${a.id}">${a.icon} ${esc(a.name)}</span>`).join('');
+    return `<div class="led-panel" data-panel="acct"><div class="chips acct-pick">${acctPick}</div></div>`;
+  }
+  if (ledFocus === 'date') {
+    const dateVal = editing ? edRec.date : todayStr();
+    return `<div class="led-panel" data-panel="date"><input id="l-date" type="date" value="${dateVal}" /></div>`;
+  }
+  if (ledFocus === 'channel') {
+    return `<div class="led-panel" data-panel="channel"><div class="chips ch-row">${channelChips(ledChannel)}</div></div>`;
+  }
+  return '';
 }
 function kpadHTML() {
   return `<div class="kpad-4">
@@ -837,9 +848,8 @@ function rerenderLedgerForm() {
     sb.innerHTML = ledgerForm();
     setTimeout(() => {
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
-      set('l-date', date); set('l-note', note);
-      const chip = document.querySelector('#sheet-body [data-act="led-focus-date"]');
-      if (chip) chip.textContent = date === todayStr() ? '今天' : date.slice(5);
+      if (ledFocus === 'date') set('l-date', date || todayStr());
+      set('l-note', note);
     }, 0);
   }
 }
@@ -948,6 +958,7 @@ function openPriceForm(id, presetName) {
 }
 function openLedgerForm(id) {
   const editing = id ? state.ledger.find(l => l.id === id) : null;
+  ledFocus = null;
   if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); ledChannel = editing.channel || ''; }
   else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; }
   sheetCtx = { kind: 'ledger', id };
@@ -1307,15 +1318,10 @@ const ACTIONS = {
   'ph-add': el => openPriceForm(null, el.dataset.name),
   'ph-del': el => { const id = el.dataset.id; askConfirm('删除确认', '删除这条价格记录？', () => { state.prices = state.prices.filter(x => x.id !== id); save(); closeSheet(); render(); }); },
 
-  'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; rerenderLedgerForm(); },
-  'led-cat': el => { ledCat = el.dataset.cat; rerenderLedgerForm(); },
-  'led-acct': el => {
-    ledAcct = el.dataset.id;
-    document.querySelectorAll('#sheet-body .acct-pick .chip').forEach(c => c.classList.toggle('on', c.dataset.id === ledAcct));
-    const a = state.accounts.find(x => x.id === ledAcct);
-    const chip = document.querySelector('#sheet-body .led-quick [data-act="led-focus-acct"]');
-    if (chip && a) chip.textContent = a.icon + ' ' + a.name;
-  },
+  'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; if (ledFocus === 'channel') ledFocus = null; rerenderLedgerForm(); },
+  'led-cat': el => { ledCat = el.dataset.cat; if (ledFocus === 'channel') ledFocus = null; rerenderLedgerForm(); },
+  'led-acct': el => { ledAcct = el.dataset.id; ledFocus = null; rerenderLedgerForm(); },
+  'ch-sel': el => { ledChannel = el.dataset.ch; ledFocus = null; rerenderLedgerForm(); },
   'kpad': el => {
     const k = el.dataset.k;
     if (k === 'save') { saveLed(); return; }
@@ -1342,10 +1348,10 @@ const ACTIONS = {
     }
     const d = document.getElementById('l-amt'); if (d) d.textContent = ledExpr;
   },
-  'led-focus-acct': () => { const el = document.querySelector('#sheet-body .acct-pick'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
-  'led-focus-date': () => { const el = document.getElementById('l-date'); if (el) { if (el.showPicker) el.showPicker(); else el.focus(); } },
-  'led-focus-cat': () => { const el = document.querySelector('#sheet-body .cat-grid'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
-  'led-focus-channel': () => { const el = document.querySelector('#sheet-body #led-ch-wrap'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
+  'led-focus-acct': () => { ledFocus = ledFocus === 'acct' ? null : 'acct'; rerenderLedgerForm(); },
+  'led-focus-date': () => { ledFocus = ledFocus === 'date' ? null : 'date'; rerenderLedgerForm(); },
+  'led-focus-cat': () => { ledFocus = ledFocus === 'cat' ? null : 'cat'; rerenderLedgerForm(); setTimeout(() => { const el = document.querySelector('#sheet-body .cat-grid'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 0); },
+  'led-focus-channel': () => { ledFocus = ledFocus === 'channel' ? null : 'channel'; rerenderLedgerForm(); },
   'media-kind': el => { mediaKind = el.dataset.k; document.querySelectorAll('#sheet-body [data-act="media-kind"]').forEach(c => c.classList.toggle('on', c.dataset.k === mediaKind)); },
 
   'hc': el => { const hb = state.habits.find(x => x.id === el.dataset.id); if (!hb) return; const td = todayStr(); if (hb.records[td]) delete hb.records[td]; else hb.records[td] = true; save(); render(); },
@@ -1521,8 +1527,8 @@ function handleChange(e) {
   if (t.dataset && t.dataset.act === 'set-budget') { state.settings.budget = parseFloat(t.value) || 0; save(); return; }
   if (t.id === 'r-repeat') { const d = document.getElementById('r-days'); if (d) d.style.display = t.value === 'custom' ? 'flex' : 'none'; }
   if (t.id === 'l-date') {
-    const chip = document.querySelector('#sheet-body [data-act="led-focus-date"]');
-    if (chip) chip.textContent = t.value === todayStr() ? '今天' : t.value.slice(5);
+    ledFocus = null;
+    rerenderLedgerForm();
   }
 }
 

@@ -286,10 +286,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .led-quick { display: flex; gap: 0; flex-wrap: nowrap; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--field); }
 .quick-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: 1 1 0; min-width: 0; padding: 7px 4px; color: var(--muted); font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .quick-chip + .quick-chip { border-left: 1px solid var(--line); }
-.quick-chip:active { background: var(--accent-soft); }
-.led-strip { display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.led-strip .acct-pick { flex: 1; min-width: 0; }
-.led-strip #l-date { flex: 0 0 auto; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font-size: 13px; cursor: pointer; }
+.quick-chip:active, .quick-chip.on { background: var(--accent-soft); color: var(--accent); }
+.led-panel { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.led-panel .acct-pick { display: flex; flex-direction: row; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+.led-panel .acct-pick .chip { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex: 0 0 auto; }
+.led-panel #l-date { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); font-size: 14px; }
+.led-panel .ch-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .led-edit-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .led-del { background: none; border: none; color: var(--red); font-size: 13px; cursor: pointer; padding: 4px 8px; }
 .kpad-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
