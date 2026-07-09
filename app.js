@@ -262,7 +262,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
 const PANE_HEADS = {
   money: '',
   home: '<div class="pane-head"><span>🏠 主页</span></div>',
-  notes: '<div class="pane-head"><span>📚 笔记</span><button class="btn ghost sm" data-act="lib-choose">＋ 记一笔</button></div>'
+  notes: '<div class="pane-head"><span>📁 记录</span><button class="btn ghost sm" data-act="lib-choose">＋ 记一笔</button></div>'
 };
 /* 只刷新某一栏（桌面下避免整页重绘，保留滚动与焦点） */
 function renderPane(which) {
@@ -296,7 +296,7 @@ function render() {
   document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   const brandEl = document.getElementById('brandEl');
   if (brandEl) {
-    const L = { today: '主页', money: '账', notes: '笔记', me: '设置' };
+    const L = { today: '主页', money: '账', notes: '记录', me: '设置' };
     brandEl.textContent = (window.innerWidth >= 760 || view === 'today') ? '日课' : (L[view] || '日课');
   }
   document.querySelectorAll('.tab').forEach(t => {
@@ -647,12 +647,29 @@ function contentItems() {
 function notesHTML() {
   const items = contentItems();
   const q = libSearch.trim().toLowerCase();
-  let list = items.filter(it => libType === 'all' || it.type === libType);
-  if (q) list = list.filter(it => (it.title + ' ' + it.sub).toLowerCase().includes(q));
-  list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const filtered = items.filter(it =>
+    (libType === 'all' || it.type === libType) &&
+    (!q || (it.title + ' ' + it.sub).toLowerCase().includes(q))
+  );
+  filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   const chips = [{ id: 'all', name: '全部', icon: '📚' }].concat(CONTENT_TYPES).map(tp => `<span class="chip ${libType === tp.id ? 'on' : ''}" data-act="lib-filter" data-t="${tp.id}">${tp.icon} ${tp.name}</span>`).join('');
-  const listHTML = list.length ? list.map(it => `<div class="item lib-item" data-act="lib-open" data-type="${it.type}" data-id="${it.id}"><div style="flex:1;min-width:0"><div class="title" style="display:flex;gap:6px;align-items:center"><span>${it.icon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</span></div><div class="sub">${esc(it.sub)}</div></div><button class="icon-btn del" data-act="lib-del" data-type="${it.type}" data-id="${it.id}">✕</button></div>`).join('') : emptyHTML(libType === 'all' ? '记录库还是空的，点右下角 ＋ 记一笔' : '该分类暂无记录');
+
+  let listHTML;
+  if (libType === 'all') {
+    const groups = [
+      { title: '记录', types: ['diary', 'travel', 'recipe', 'note', 'media'] },
+      { title: '任务', types: ['todo', 'reminder'] }
+    ];
+    listHTML = groups.map(g => {
+      const gi = filtered.filter(it => g.types.includes(it.type));
+      if (!gi.length) return '';
+      return `<div class="lib-sec"><div class="lib-sec-title">${g.title}</div>${gi.map(it => `<div class="item lib-item" data-act="lib-open" data-type="${it.type}" data-id="${it.id}"><div style="flex:1;min-width:0"><div class="title" style="display:flex;gap:6px;align-items:center"><span>${it.icon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</span></div><div class="sub">${esc(it.sub)}</div></div><button class="icon-btn del" data-act="lib-del" data-type="${it.type}" data-id="${it.id}">✕</button></div>`).join('')}</div>`;
+    }).join('');
+    if (!listHTML) listHTML = emptyHTML('记录库还是空的，点右下角 ＋ 记一笔');
+  } else {
+    listHTML = filtered.length ? filtered.map(it => `<div class="item lib-item" data-act="lib-open" data-type="${it.type}" data-id="${it.id}"><div style="flex:1;min-width:0"><div class="title" style="display:flex;gap:6px;align-items:center"><span>${it.icon}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title)}</span></div><div class="sub">${esc(it.sub)}</div></div><button class="icon-btn del" data-act="lib-del" data-type="${it.type}" data-id="${it.id}">✕</button></div>`).join('') : emptyHTML('该分类暂无记录');
+  }
 
   return `
     <div class="search-row"><input class="search" id="lib-search" placeholder="🔍 搜索标题 / 内容" value="${esc(libSearch)}" /></div>
@@ -697,7 +714,7 @@ function renderMe() {
     </div>
     <div class="card">
       <h3>📜 关于「日课」</h3>
-      <p class="muted small" style="line-height:1.7">日课，是把你散在日历、待办、笔记里的事，收进一个完全属于你的生活中枢。今天感知时间、账看财富结构、笔记存一切、我管设置。长期主义不是坚持做大事，而是把小事，做很久。</p>
+      <p class="muted small" style="line-height:1.7">日课，是把你散在日历、待办、记录里的事，收进一个完全属于你的生活中枢。今天感知时间、账看财富结构、记录存一切、我管设置。长期主义不是坚持做大事，而是把小事，做很久。</p>
     </div>`;
 }
 
