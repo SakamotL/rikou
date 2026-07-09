@@ -244,7 +244,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 /* ---------- 库：搜索 + 筛选 + 列表 ---------- */
 .search-row { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 6px 0 8px; }
 .search { background: var(--field); }
-.lib-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; -webkit-overflow-scrolling: touch; }
+.lib-chips { display: flex; gap: 8px; overflow-x: auto; flex-wrap: wrap; padding: 2px 0 6px; -webkit-overflow-scrolling: touch; }
 .lib-chips .chip { white-space: nowrap; flex: 0 0 auto; }
 .lib-item { cursor: pointer; }
 .lib-sec { margin-top: 12px; }
