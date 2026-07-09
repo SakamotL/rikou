@@ -18,14 +18,21 @@ python -m http.server 8000
 # 浏览器打开 http://localhost:8000
 ```
 
+## 线上地址（已部署）
+
+**https://sakamotl.github.io/rikou/**
+
+可"添加到主屏幕"当 App 用（PWA）。
+
 ## 部署（GitHub Pages）
 
-1. 把本仓库推到 GitHub（`main` 分支）
-2. 仓库 Settings → Pages → Source 选 `main` 分支 `/ (root)`
+1. 把本仓库推到 GitHub（`master` 分支）
+2. 仓库 Settings → Pages → Source 选 `master` 分支 `/ (root)`
 3. 访问 `https://<你的用户名>.github.io/<仓库名>/`
 
 > 已加 `.nojekyll`，不会被 Jekyll 处理。
-> 已注册 Service Worker，可"添加到主屏幕"离线使用；改代码后部署即生效（fetch 走网络优先）。
+> 已注册 Service Worker，可"添加到主屏幕"离线使用；改代码后 `git push` 即生效（fetch 走网络优先，不用清缓存）。
+> 仓库根目录已含一键脚本 `deploy.sh`（需 `gh` 登录或 `GITHUB_TOKEN` 环境变量）。
 
 ## 文件
 
