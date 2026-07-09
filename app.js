@@ -299,6 +299,8 @@ function render() {
     const L = { today: '主页', money: '账', notes: '记录', me: '设置' };
     brandEl.textContent = (window.innerWidth >= 760 || view === 'today') ? '日课' : (L[view] || '日课');
   }
+  const ttEl = document.getElementById('themeToggle');
+  if (ttEl) ttEl.textContent = effTheme() === 'dark' ? '🌙' : '☀️';
   document.querySelectorAll('.tab').forEach(t => {
     const on = t.dataset.view === view;
     t.classList.toggle('active', on); t.classList.toggle('center', on);
@@ -1149,12 +1151,12 @@ function fireNote(title, sub, tag) {
 }
 
 /* ================= 主题 ================= */
-function applyTheme() {
+function effTheme() {
   const t = (state.settings && state.settings.theme) || 'light';
-  let eff = t;
-  if (t === 'auto') eff = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-  document.documentElement.dataset.theme = eff;
+  if (t === 'auto') return (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  return t;
 }
+function applyTheme() { document.documentElement.dataset.theme = effTheme(); }
 
 /* ================= 交互 ================= */
 /* ---------- 点击动作查表（替代原巨型 if/else 分发）----------
@@ -1240,7 +1242,13 @@ const ACTIONS = {
   'save-debt': () => saveDebt(),
 
   'enable-notif': () => { if (!('Notification' in window)) return toast('当前环境不支持通知'); Notification.requestPermission().then(p => { state.settings.notif = p === 'granted'; save(); renderMe(); toast(p === 'granted' ? '通知已开启' : '未授权', p === 'granted' ? '到点会弹窗提醒' : '可在浏览器设置里开启'); }); },
-  'set-theme': el => { state.settings.theme = el.dataset.t; save(); applyTheme(); renderMe(); },
+  'set-theme': el => { state.settings.theme = el.dataset.t; save(); render(); },
+  'toggle-theme': () => {
+    const cur = effTheme();
+    state.settings.theme = cur === 'dark' ? 'light' : 'dark';
+    save(); render();
+    toast(state.settings.theme === 'dark' ? '已切换夜间模式' : '已切换日间模式', '');
+  },
   'export': () => { const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `日课备份_${todayStr()}.json`; a.click(); toast('已导出', '文件已下载到本机'); },
   'export-ob': () => exportObsidian(),
   'clear': () => askConfirm('清空确认', '确定清空全部数据？此操作不可恢复（建议先导出备份）。', () => { state = defaults(); ledAcct = state.accounts[0] && state.accounts[0].id; libType = 'all'; libSearch = ''; save(); applyTheme(); navTo('today'); toast('已清空'); }, '清空'),
