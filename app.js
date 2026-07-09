@@ -236,7 +236,7 @@ let prevView = 'today';
 let libType = 'all';
 let libSearch = '';
 let sheetCtx = null;
-let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null;
+let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledAmt = '0';
 let qType = 'out';
 if (state.accounts[0]) ledAcct = state.accounts[0].id;
 let mediaKind = 'book';
@@ -779,16 +779,21 @@ function ledgerForm() {
   const channelHTML = showChannel ? `<div id="led-ch-wrap"><label class="f">购物平台</label><div class="chips ch-row" id="led-ch-row">${channelChips(edCh)}</div></div>` : '';
   const delBtn = editing ? `<button class="btn danger" data-act="del-led-form" data-id="${sheetCtx.id}">删除</button>` : '';
   return `<div class="chips" style="margin-bottom:10px"><span class="chip led-typechip ${ledType === 'out' ? 'on' : ''}" data-act="led-type" data-t="out">支出</span><span class="chip led-typechip ${ledType === 'in' ? 'on' : ''}" data-act="led-type" data-t="in">收入</span></div>
-    <input id="l-amt" class="amount-big" type="number" inputmode="decimal" placeholder="0.00" />
+    <div class="amt-row"><span class="amt-prefix">¥</span><div id="l-amt" class="amount-big">${ledAmt}</div><button class="amt-clr" data-act="kpad" data-k="clr">清空</button></div>
     <div class="cat-grid">${grid}</div>
     <label class="f">账户</label><div class="acct-pick">${acctPick}</div>
     <label class="f">日期</label><input id="l-date" type="date" value="${todayStr()}" />
     ${channelHTML}
     <label class="f">备注</label><input id="l-note" placeholder="如：午餐 / 地铁 / 工资" />
+    ${kpadHTML()}
     <div class="sheet-foot">${delBtn}<button class="btn ghost" data-act="save-led-more">再记</button><button class="btn primary" data-act="save-led">${editing ? '保存修改' : '保存'}</button></div>`;
 }
+function kpadHTML() {
+  const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'del'];
+  const label = { del: '⌫' };
+  return '<div class="kpad">' + keys.map(k => `<button type="button" data-act="kpad" data-k="${k}">${label[k] || k}</button>`).join('') + '</div>';
+}
 function rerenderLedgerForm() {
-  const amt = (document.getElementById('l-amt') || {}).value || '';
   const date = (document.getElementById('l-date') || {}).value || '';
   const note = (document.getElementById('l-note') || {}).value || '';
   const sb = document.getElementById('sheet-body');
@@ -796,7 +801,7 @@ function rerenderLedgerForm() {
     sb.innerHTML = ledgerForm();
     setTimeout(() => {
       const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
-      set('l-amt', amt); set('l-date', date); set('l-note', note);
+      set('l-date', date); set('l-note', note);
     }, 0);
   }
 }
@@ -905,11 +910,11 @@ function openPriceForm(id, presetName) {
 }
 function openLedgerForm(id) {
   const editing = id ? state.ledger.find(l => l.id === id) : null;
-  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; }
-  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; }
+  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledAmt = String(editing.amount); }
+  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledAmt = '0'; }
   sheetCtx = { kind: 'ledger', id };
   openSheet('记账' + (id ? ' · 编辑' : ' · 新增'), ledgerForm());
-  if (editing) setTimeout(() => { const a = document.getElementById('l-amt'); if (a) a.value = editing.amount; const d = document.getElementById('l-date'); if (d) d.value = editing.date; const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; const cr = document.getElementById('led-ch-row'); if (cr && editing.channel) cr.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.ch === editing.channel)); }, 0);
+  if (editing) setTimeout(() => { const d = document.getElementById('l-date'); if (d) d.value = editing.date; const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; const cr = document.getElementById('led-ch-row'); if (cr && editing.channel) cr.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.ch === editing.channel)); }, 0);
 }
 function openMediaForm(id) {
   const editing = id ? state.media.find(m => m.id === id) : null;
@@ -1054,7 +1059,7 @@ function savePrice() {
   save(); closeSheet(); render();
 }
 function saveLed(stayOpen) {
-  const amt = parseFloat(document.getElementById('l-amt').value); if (!(amt > 0)) return toast('请输入正确金额');
+  const amt = parseFloat(ledAmt); if (!(amt > 0)) return toast('请输入正确金额');
   if (!ledAcct) return toast('请选择账户');
   const chEl = document.querySelector('#led-ch-row .chip.on');
   const channel = chEl ? chEl.dataset.ch : '';
@@ -1074,6 +1079,7 @@ function saveLed(stayOpen) {
   if (stayOpen) {
     const oldDate = document.getElementById('l-date').value;
     sheetCtx = { kind: 'ledger', id: null };
+    ledAmt = '0';
     const sb = document.getElementById('sheet-body');
     if (sb) {
       sb.innerHTML = ledgerForm();
@@ -1254,6 +1260,14 @@ const ACTIONS = {
   'led-type': el => { ledType = el.dataset.t; ledCat = CATS[ledType][0][0]; rerenderLedgerForm(); },
   'led-cat': el => { ledCat = el.dataset.cat; rerenderLedgerForm(); },
   'led-acct': el => { ledAcct = el.dataset.id; document.querySelectorAll('#sheet-body .acct-pick .chip').forEach(c => c.classList.toggle('on', c.dataset.id === ledAcct)); },
+  'kpad': el => {
+    const k = el.dataset.k;
+    if (k === 'del') { ledAmt = ledAmt.length > 1 ? ledAmt.slice(0, -1) : '0'; }
+    else if (k === 'clr') { ledAmt = '0'; }
+    else if (k === '.') { if (!ledAmt.includes('.')) ledAmt = (ledAmt === '0' ? '0.' : ledAmt + '.'); }
+    else if (/^\d$/.test(k)) { if (ledAmt === '0') ledAmt = k; else if (ledAmt.replace('.', '').length < 9) ledAmt += k; }
+    const d = document.getElementById('l-amt'); if (d) d.textContent = ledAmt;
+  },
   'media-kind': el => { mediaKind = el.dataset.k; document.querySelectorAll('#sheet-body [data-act="media-kind"]').forEach(c => c.classList.toggle('on', c.dataset.k === mediaKind)); },
 
   'hc': el => { const hb = state.habits.find(x => x.id === el.dataset.id); if (!hb) return; const td = todayStr(); if (hb.records[td]) delete hb.records[td]; else hb.records[td] = true; save(); render(); },
