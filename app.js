@@ -305,7 +305,7 @@ function render() {
   const brandEl = document.getElementById('brandEl');
   if (brandEl) {
     const L = { today: '主页', money: '账', notes: '记录', me: '设置' };
-    brandEl.textContent = (window.innerWidth >= 760 || view === 'today') ? '日课' : (L[view] || '日课');
+    brandEl.textContent = (window.innerWidth >= 760 || view === 'today') ? '日迹' : (L[view] || '日迹');
   }
   const ttEl = document.getElementById('themeToggle');
   if (ttEl) ttEl.textContent = effTheme() === 'dark' ? '🌙' : '☀️';
@@ -332,17 +332,86 @@ function render() {
   else viewEl.innerHTML = homeHTML();
 }
 
-/* ================= 主页（时间视角：此刻任务 + 临期待办 + 今日日课） ================= */
+/* ================= 主页（今日驾驶舱：时间 + 财务 + 快捷 + 待办 + 日课） ================= */
 function homeHTML() {
   const t = new Date(), h = t.getHours();
   const greet = h < 6 ? '夜深了' : h < 11 ? '早安' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
   const td = todayStr();
+  const monthKey = td.slice(0, 7);
   const nt = nextTaskInfo();
   const dueTodo = state.todos.filter(x => !x.done && (!x.due || x.due <= td));
+
+  const todayOut = state.ledger.filter(x => x.date === td && x.type === 'out').reduce((s, x) => s + x.amount, 0);
+  const monthOut = state.ledger.filter(x => x.date.startsWith(monthKey) && x.type === 'out').reduce((s, x) => s + x.amount, 0);
+  const netWorth = state.accounts.reduce((s, a) => s + (a.balance || 0), 0);
+
+  const recent = state.ledger.slice().sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0, 3);
 
   const nextCard = nt
     ? `<div class="next-task"><div class="nt-label">此刻 · 你的下一个任务</div><div class="nt-main">▶️ ${esc(nt.label)}</div><div class="nt-when">${esc(nt.when)}</div></div>`
     : `<div class="next-task idle"><div class="nt-label">${greet}</div><div class="nt-main">✅ 暂时没有待办任务</div><div class="nt-when">享受当下，或记一笔账</div></div>`;
+
+  const summaryCard = `
+    <div class="card summary-card">
+      <div class="row between">
+        <div class="summary-title">💰 今日财务</div>
+        <div class="summary-date">${new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })}</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-cell">
+          <div class="summary-label">今日支出</div>
+          <div class="summary-value out">${fmtMoney(todayOut)}</div>
+        </div>
+        <div class="summary-cell">
+          <div class="summary-label">本月支出</div>
+          <div class="summary-value out">${fmtMoney(monthOut)}</div>
+        </div>
+        <div class="summary-cell">
+          <div class="summary-label">净资产</div>
+          <div class="summary-value">${fmtMoney(netWorth)}</div>
+        </div>
+      </div>
+    </div>`;
+
+  const quickCard = `
+    <div class="card quick-card">
+      <div class="quick-grid">
+        <button class="quick-btn" data-act="open-led">
+          <span class="quick-ico">📝</span>
+          <span class="quick-lab">记账</span>
+        </button>
+        <button class="quick-btn" data-act="open-todo">
+          <span class="quick-ico">✅</span>
+          <span class="quick-lab">待办</span>
+        </button>
+        <button class="quick-btn" data-act="open-habit">
+          <span class="quick-ico">🌱</span>
+          <span class="quick-lab">日课</span>
+        </button>
+        <button class="quick-btn" data-act="open-price">
+          <span class="quick-ico">💲</span>
+          <span class="quick-lab">价格</span>
+        </button>
+      </div>
+    </div>`;
+
+  const recentCard = recent.length
+    ? `<div class="card">
+        <h3>🔄 最近流水</h3>
+        ${recent.map(x => {
+          const a = state.accounts.find(ac => ac.id === x.account) || { name: '未知账户' };
+          const sign = x.type === 'in' ? '+' : '-';
+          return `<div class="item item-led" data-act="open-led" data-id="${x.id}">
+            <div class="led-icon ${x.type === 'in' ? 'in' : 'out'}">${x.type === 'in' ? '↓' : '↑'}</div>
+            <div style="flex:1;min-width:0">
+              <div class="title">${esc(x.category)} · ${esc(a.name)}</div>
+              <div class="sub">${dayLabel(x.date)}${x.note ? ' · ' + esc(x.note) : ''}</div>
+            </div>
+            <div class="led-amt ${x.type === 'in' ? 'in' : 'out'}">${sign}${fmtMoney(x.amount)}</div>
+          </div>`;
+        }).join('')}
+      </div>`
+    : '';
 
   const todoHTML = dueTodo.length ? dueTodo.slice(0, 6).map(x => {
     const age = todoAge(x);
@@ -358,6 +427,9 @@ function homeHTML() {
 
   return `
     ${nextCard}
+    ${summaryCard}
+    ${quickCard}
+    ${recent.length ? recentCard : ''}
     ${todoCard}
     ${habCard}`;
 }
@@ -1254,6 +1326,8 @@ const ACTIONS = {
 
   'open-habit': () => openHabitForm(null),
   'hab-edit': el => openHabitForm(el.dataset.id),
+  'open-todo': () => openTodoForm(null),
+  'open-price': () => openPriceForm(null),
   'open-acct': () => openAccountForm(null),
 
   'money-sub': el => setMoney('moneySub', el.dataset.v),
