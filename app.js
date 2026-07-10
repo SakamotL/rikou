@@ -55,6 +55,7 @@ function defaults() {
   };
 }
 let state = load();
+recalcBalances(); // 启动时即用流水校准一次，保证余额 = 期初 + 流水（杜绝存量漂移）
 if (state.netHistory && !state.netHistory.length) recordNet();
 
 function load() {
@@ -77,7 +78,16 @@ function load() {
     if (!Array.isArray(merged.prices)) merged.prices = [];
     if (!Array.isArray(merged.netHistory)) merged.netHistory = [];
     if (!Array.isArray(merged.accounts) || !merged.accounts.length) merged.accounts = base.accounts;
-    merged.accounts.forEach(a => { if (!a.kind) a.kind = 'asset'; });
+    merged.accounts.forEach(a => {
+      if (!a.kind) a.kind = 'asset';
+      if (a.isDebt) return;
+      if (typeof a.opening !== 'number') {
+        // 旧数据无期初余额：由当前余额反推期初，使重算后显示不变
+        const d = merged.ledger.filter(x => x.account === a.id).reduce((s, x) => s + (x.type === 'in' ? x.amount : -x.amount), 0);
+        const bal = (typeof a.balance === 'number') ? a.balance : 0;
+        a.opening = round2(bal - d);
+      }
+    });
     merged.ledger.forEach(x => { if (!x.account && merged.accounts[0]) x.account = merged.accounts[0].id; });
     ['notes', 'todos', 'media', 'reminders', 'habits'].forEach(k => { if (!Array.isArray(merged[k])) merged[k] = []; });
     if (oldKey) { try { localStorage.setItem(STORE_KEY, JSON.stringify(merged)); localStorage.removeItem(oldKey); } catch (e) {} }
@@ -166,6 +176,23 @@ function calcStreak(hb) {
   return n;
 }
 function acct(id) { return state.accounts.find(a => a.id === id); }
+/* ---------- 余额：由「期初余额 + 流水」派生，杜绝逐步累加漂移 ---------- */
+function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+function ledgerDeltaFor(acctId) {
+  return state.ledger.reduce((s, x) => {
+    if (x.account !== acctId) return s;
+    return s + (x.type === 'in' ? x.amount : -x.amount);
+  }, 0);
+}
+/* 重算所有（非债务）账户余额 = 期初余额 + 该账户流水净额。
+   任何记账/删账/改账后都调用它，余额不再依赖逐步累加，永不漂移。 */
+function recalcBalances() {
+  state.accounts.forEach(a => {
+    if (a.isDebt) return; // 债务账户由 debt 模块自己管理余额
+    const opening = (typeof a.opening === 'number') ? a.opening : 0;
+    a.balance = round2(opening + ledgerDeltaFor(a.id));
+  });
+}
 function netWorth() {
   const assets = state.accounts.filter(x => x.kind !== 'liability').reduce((s, x) => s + x.balance, 0);
   const liabs = state.accounts.filter(x => x.kind === 'liability').reduce((s, x) => s + x.balance, 0);
@@ -285,7 +312,7 @@ function quickLed() {
   if (!acId) return toast('请先去「账」里加一个账户');
   const data = { type: qType, amount: Math.round(amt * 100) / 100, category: cat, account: acId, date: todayStr(), note: '' };
   state.ledger.push(Object.assign({ id: uid() }, data));
-  const a = acct(acId); if (a) a.balance += (qType === 'in' ? amt : -amt);
+  recalcBalances();
   state.settings.lastLed = state.settings.lastLed || { out: { cat: '', acct: '' }, in: { cat: '', acct: '' } };
   state.settings.lastLed[qType] = { cat, acct: acId };
   recordNet(); save();
@@ -501,7 +528,7 @@ function moneyNav(showRange) {
 function acctCardHTML() {
   const accts = state.accounts.filter(a => !a.isDebt);
   const acctHTML = accts.length ? accts.map(a => `<div class="item" data-act="open-acct-edit" data-id="${a.id}"><div style="flex:1"><div class="title">${a.icon} ${esc(a.name)}<span class="kind-badge ${a.kind === 'liability' ? 'kind-liab' : 'kind-asset'}">${a.kind === 'liability' ? '负债' : '资产'}</span></div><div class="sub">${a.kind === 'liability' ? '欠款' : '余额'} ${fmtMoney(a.balance)}</div></div><button class="icon-btn del" data-act="del-acct" data-id="${a.id}">✕</button></div>`).join('') : emptyHTML('还没有账户');
-  return `<div class="card"><div class="row between"><h3>🏦 账户</h3><button class="btn ghost" data-act="open-acct">＋ 账户</button></div>${acctHTML}</div>`;
+  return `<div class="card"><div class="row between"><h3>🏦 账户</h3><div class="row" style="gap:6px"><button class="btn ghost" data-act="recalc-balances">🔄 校准</button><button class="btn ghost" data-act="open-acct">＋ 账户</button></div></div>${acctHTML}</div>`;
 }
 function debtCardHTML() {
   const debts = state.accounts.filter(a => a.isDebt);
@@ -895,6 +922,7 @@ function accountForm(editing) {
   return `<label class="f">名称</label><input id="a-name" placeholder="如：花呗 / 招商银行" />
     <label class="f">图标 emoji</label><input id="a-icon" placeholder="💳" maxlength="4" />
     <label class="f">当前${editing && editing.kind === 'liability' ? '欠款' : '余额'}</label><input id="a-bal" type="number" inputmode="decimal" placeholder="0" />
+    <div class="muted small" style="margin:-2px 0 8px">填「当前余额」即可，系统按流水自动累计；若对不上，去账户页点「校准」。</div>
     <label class="f">类型</label><select id="a-kind"><option value="asset">资产（你拥有的钱）</option><option value="liability">负债（你欠的钱）</option></select>
     <div class="sheet-foot"><button class="btn ghost" data-act="sheet-close">取消</button><button class="btn primary" data-act="save-acct">${editing ? '保存修改' : '保存'}</button></div>`;
 }
@@ -1016,7 +1044,8 @@ function openAccountDetail(id) {
   const sum = list.reduce((s, x) => s + (x.type === 'in' ? x.amount : -x.amount), 0);
   const listHTML = list.length ? list.map(x => `<div class="item" data-act="open-led" data-id="${x.id}"><div style="flex:1;min-width:0"><div class="title">${esc(x.category)} <span class="muted small">${x.type === 'in' ? '收入' : '支出'}</span>${x.channel ? ` <span class="kind-badge kind-liab">${esc(x.channel)}</span>` : ''}${x.note ? `<span class="muted small"> · ${esc(x.note)}</span>` : ''}</div><div class="sub">${x.date}</div></div><div class="${x.type === 'in' ? 'pos' : 'neg'}" style="font-weight:700">${x.type === 'in' ? '+' : '-'}${fmtMoney(x.amount)}</div><button class="icon-btn del" data-act="del-acct-led" data-id="${x.id}">✕</button></div>`).join('') : emptyHTML('这个账户还没有流水');
   const body = `<div class="card"><div class="item" style="border:none"><div style="font-size:22px">${a.icon}</div><div style="flex:1"><div class="title">${esc(a.name)}</div><div class="sub">${a.kind === 'liability' ? '欠款' : '余额'} ${fmtMoney(a.balance)} · ${list.length} 笔流水 · 净${sum >= 0 ? '+' : '-'}${fmtMoney(Math.abs(sum))}</div></div><button class="btn ghost" data-act="edit-acct" data-id="${a.id}">编辑</button></div></div>
-    <div class="card"><h3>🧾 该账户流水</h3>${listHTML}</div>`;
+    <div class="card"><h3>🧾 该账户流水</h3>${listHTML}</div>
+    <div class="sheet-foot"><button class="btn ghost" data-act="sheet-close">关闭</button><button class="btn primary" data-act="recalc-balances">🔄 按流水校准余额</button></div>`;
   openSheet(esc(a.name) + ' · 明细', body);
 }
 function buildSpark(pts, goodUp) {
@@ -1130,15 +1159,13 @@ function saveLed(stayOpen) {
   const data = { type: ledType, amount: Math.round(amt * 100) / 100, category: ledCat, account: ledAcct, date: document.getElementById('l-date').value || todayStr(), note: document.getElementById('l-note').value.trim(), channel };
   if (sheetCtx.id) {
     const old = state.ledger.find(x => x.id === sheetCtx.id);
-    if (old) { const a = acct(old.account); if (a) a.balance -= (old.type === 'in' ? old.amount : -old.amount); }
-    Object.assign(old, data);
-    const a = acct(ledAcct); if (a) a.balance += (ledType === 'in' ? amt : -amt);
+    if (old) Object.assign(old, data);
     toast('已保存修改');
   } else {
     state.ledger.push(Object.assign({ id: uid() }, data));
-    const a = acct(ledAcct); if (a) a.balance += (ledType === 'in' ? amt : -amt);
-    toast('已记录', (ledType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
+    toast((ledType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
   }
+  recalcBalances();
   recordNet(); save();
   if (stayOpen) {
     const oldDate = document.getElementById('l-date').value;
@@ -1199,9 +1226,21 @@ function saveAcct() {
   const icon = document.getElementById('a-icon').value.trim() || '💳';
   const bal = parseFloat(document.getElementById('a-bal').value) || 0;
   const kind = document.getElementById('a-kind').value;
-  if (sheetCtx.id) { const a = state.accounts.find(x => x.id === sheetCtx.id); if (a) { a.name = name; a.icon = icon; a.kind = kind; a.balance = bal; } toast('已保存修改'); }
-  else { state.accounts.push({ id: uid(), name, icon, balance: bal, kind }); if (!ledAcct) ledAcct = state.accounts[0].id; toast('已添加账户', name); }
-  recordNet(); save(); closeSheet(); render();
+  if (sheetCtx.id) {
+    const a = state.accounts.find(x => x.id === sheetCtx.id);
+    if (a) {
+      const curBal = (typeof a.balance === 'number') ? a.balance : 0;
+      const oldOpening = (typeof a.opening === 'number') ? a.opening : 0;
+      a.opening = round2(oldOpening + (bal - curBal)); // 把"当前余额"的改动折算到期初，重算后等于用户填的值
+      a.name = name; a.icon = icon; a.kind = kind;
+    }
+    toast('已保存修改');
+  } else {
+    state.accounts.push({ id: uid(), name, icon, opening: bal, balance: bal, kind });
+    if (!ledAcct) ledAcct = state.accounts[0].id;
+    toast('已添加账户', name);
+  }
+  recalcBalances(); recordNet(); save(); closeSheet(); render();
 }
 function delByType(type, id) {
   let msg = '删除这条记录？', act = null;
@@ -1214,10 +1253,9 @@ function delByType(type, id) {
   askConfirm('删除确认', msg, () => { act(); save(); render(); });
 }
 function delLed(id) {
-  askConfirm('删除确认', '删除这笔记录？账户余额会回滚。', () => {
-    const x = state.ledger.find(y => y.id === id);
-    if (x) { const a = acct(x.account); if (a) a.balance -= (x.type === 'in' ? x.amount : -x.amount); }
-    state.ledger = state.ledger.filter(y => y.id !== id); recordNet(); save(); render();
+  askConfirm('删除确认', '删除这笔记录？账户余额会重新按流水计算。', () => {
+    state.ledger = state.ledger.filter(y => y.id !== id);
+    recalcBalances(); recordNet(); save(); render();
   });
 }
 
@@ -1295,6 +1333,7 @@ const ACTIONS = {
   'open-led': el => openLedgerForm(el.dataset.id),
   'open-acct-edit': el => openAccountDetail(el.dataset.id),
   'edit-acct': el => openAccountForm(el.dataset.id),
+  'recalc-balances': () => { recalcBalances(); recordNet(); save(); render(); toast('已按全部流水重新校准账户余额'); },
   'del-led-form': el => { delLed(el.dataset.id); closeSheet(); },
   'del-acct-led': el => { delLed(el.dataset.id); if (sheetCtx && sheetCtx.kind === 'acct-detail') openAccountDetail(sheetCtx.id); else render(); },
   'ch-sel': el => {
