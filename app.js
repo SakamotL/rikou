@@ -265,6 +265,7 @@ let libSearch = '';
 let sheetCtx = null;
 let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledExpr = '0', ledChannel = '';
 let ledFocus = null; // 'acct' | 'date' | 'channel' | null
+let ledDate = todayStr(); // 当前记账表单选中的日期（持久状态，不依赖日期面板是否展开）
 if (state.accounts[0]) ledAcct = state.accounts[0].id;
 let mediaKind = 'book';
 
@@ -764,7 +765,7 @@ function ledgerForm() {
   const grid = CATS[ledType].map(([n, em]) => `<div class="cat ${ledCat === n ? 'on' : ''}" data-act="led-cat" data-cat="${n}"><span class="emo">${em}</span><span>${n}</span></div>`).join('');
   const editing = sheetCtx && sheetCtx.id;
   const edRec = editing ? state.ledger.find(x => x.id === sheetCtx.id) : null;
-  const dateVal = editing ? edRec.date : todayStr();
+  const dateVal = ledDate;
   const noteVal = editing ? (edRec.note || '') : '';
   const catIcon = (CATS[ledType].find(([n]) => n === ledCat) || ['', '📦'])[1];
   const showChannel = ledCat === '购物' || ledChannel;
@@ -801,7 +802,7 @@ function ledPanelHTML() {
     return `<div class="led-panel" data-panel="acct"><div class="chips acct-pick">${acctPick}</div></div>`;
   }
   if (ledFocus === 'date') {
-    const dateVal = editing ? edRec.date : todayStr();
+    const dateVal = ledDate;
     return `<div class="led-panel" data-panel="date"><input id="l-date" type="date" value="${dateVal}" /></div>`;
   }
   if (ledFocus === 'channel') {
@@ -830,16 +831,11 @@ function kpadHTML() {
   </div>`;
 }
 function rerenderLedgerForm() {
-  const date = (document.getElementById('l-date') || {}).value || '';
   const note = (document.getElementById('l-note') || {}).value || '';
   const sb = document.getElementById('sheet-body');
   if (sb) {
     sb.innerHTML = ledgerForm();
-    setTimeout(() => {
-      const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
-      if (ledFocus === 'date') set('l-date', date || todayStr());
-      set('l-note', note);
-    }, 0);
+    setTimeout(() => { const n = document.getElementById('l-note'); if (n) n.value = note; }, 0);
   }
 }
 function mediaForm() {
@@ -949,11 +945,11 @@ function openPriceForm(id, presetName) {
 function openLedgerForm(id) {
   const editing = id ? state.ledger.find(l => l.id === id) : null;
   ledFocus = null;
-  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); ledChannel = editing.channel || ''; }
-  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; }
+  if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); ledChannel = editing.channel || ''; ledDate = editing.date; }
+  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; ledDate = todayStr(); }
   sheetCtx = { kind: 'ledger', id };
   openSheet('记账' + (id ? ' · 编辑' : ' · 新增'), ledgerForm());
-  if (editing) setTimeout(() => { const d = document.getElementById('l-date'); if (d) d.value = editing.date; const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; }, 0);
+  if (editing) setTimeout(() => { const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; }, 0);
 }
 function openMediaForm(id) {
   const editing = id ? state.media.find(m => m.id === id) : null;
@@ -1102,7 +1098,7 @@ function saveLed(stayOpen) {
   if (!ledAcct) return toast('请选择账户');
   const chEl = document.querySelector('#led-ch-row .chip.on');
   const channel = chEl ? chEl.dataset.ch : '';
-  const data = { type: ledType, amount: Math.round(amt * 100) / 100, category: ledCat, account: ledAcct, date: document.getElementById('l-date').value || todayStr(), note: document.getElementById('l-note').value.trim(), channel };
+  const data = { type: ledType, amount: Math.round(amt * 100) / 100, category: ledCat, account: ledAcct, date: ledDate, note: document.getElementById('l-note').value.trim(), channel };
   if (sheetCtx.id) {
     const old = state.ledger.find(x => x.id === sheetCtx.id);
     if (old) Object.assign(old, data);
@@ -1114,14 +1110,10 @@ function saveLed(stayOpen) {
   recalcBalances();
   recordNet(); save();
   if (stayOpen) {
-    const oldDate = document.getElementById('l-date').value;
     sheetCtx = { kind: 'ledger', id: null };
     ledExpr = '0';
     const sb = document.getElementById('sheet-body');
-    if (sb) {
-      sb.innerHTML = ledgerForm();
-      setTimeout(() => { const el = document.getElementById('l-date'); if (el) el.value = oldDate; }, 0);
-    }
+    if (sb) sb.innerHTML = ledgerForm();
     toast('继续记下一笔');
   } else {
     closeSheet();
@@ -1505,6 +1497,7 @@ function handleChange(e) {
   if (t.dataset && t.dataset.act === 'set-budget') { state.settings.budget = parseFloat(t.value) || 0; save(); return; }
   if (t.id === 'r-repeat') { const d = document.getElementById('r-days'); if (d) d.style.display = t.value === 'custom' ? 'flex' : 'none'; }
   if (t.id === 'l-date') {
+    ledDate = t.value || todayStr();
     ledFocus = null;
     rerenderLedgerForm();
   }
