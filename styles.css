@@ -74,6 +74,8 @@ body {
 .icon-btn.del { color: var(--red); opacity: .7; }
 .icon-btn.del:hover { opacity: 1; }
 .me-btn.active { color: var(--accent); }
+.add-btn { margin-left: auto; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; border: none; font-size: 22px; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(63,143,212,.4); cursor: pointer; align-self: center; transition: transform .06s ease; }
+.add-btn:active { transform: scale(.92); }
 .q-field { margin-top: 8px; }
 .pane { min-width: 0; }
 .pane-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 10px; font-size: 15px; font-weight: 700; color: var(--text); position: sticky; top: 0; background: var(--bg); z-index: 5; }

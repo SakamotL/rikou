@@ -265,7 +265,6 @@ let libSearch = '';
 let sheetCtx = null;
 let ledType = 'out', ledCat = CATS.out[0][0], ledAcct = null, ledExpr = '0', ledChannel = '';
 let ledFocus = null; // 'acct' | 'date' | 'channel' | null
-let qType = 'out';
 if (state.accounts[0]) ledAcct = state.accounts[0].id;
 let mediaKind = 'book';
 
@@ -298,26 +297,6 @@ function renderPane(which) {
   if (!el) return false;
   el.innerHTML = PANE_HEADS[which] + ({ money: moneyHTML, home: homeHTML, notes: notesHTML }[which])();
   return true;
-}
-/* 主页「速记账」：直接落一笔 */
-function quickLed() {
-  const amtEl = document.getElementById('q-amt');
-  const amt = parseFloat(amtEl && amtEl.value);
-  if (!(amt > 0)) return toast('请输入正确金额');
-  const catEl = document.querySelector('#q-cat-row .chip.on');
-  const acEl = document.querySelector('#q-acct-row .chip.on');
-  const cat = catEl ? catEl.dataset.cat : '';
-  const acId = acEl ? acEl.dataset.id : '';
-  if (!cat) return toast('请选择分类');
-  if (!acId) return toast('请先去「账」里加一个账户');
-  const data = { type: qType, amount: Math.round(amt * 100) / 100, category: cat, account: acId, date: todayStr(), note: '' };
-  state.ledger.push(Object.assign({ id: uid() }, data));
-  recalcBalances();
-  state.settings.lastLed = state.settings.lastLed || { out: { cat: '', acct: '' }, in: { cat: '', acct: '' } };
-  state.settings.lastLed[qType] = { cat, acct: acId };
-  recordNet(); save();
-  toast('已记录', (qType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
-  render();
 }
 function render() {
   applyTheme();
@@ -352,30 +331,17 @@ function render() {
   else viewEl.innerHTML = homeHTML();
 }
 
-/* ================= 主页（三栏中心：速记账 + 写几句话 + 提醒/待办/日课） ================= */
+/* ================= 主页（时间视角：此刻任务 + 临期待办 + 今日日课） ================= */
 function homeHTML() {
   const t = new Date(), h = t.getHours();
   const greet = h < 6 ? '夜深了' : h < 11 ? '早安' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
   const td = todayStr();
   const nt = nextTaskInfo();
   const dueTodo = state.todos.filter(x => !x.done && (!x.due || x.due <= td));
-  const net = netWorth();
 
   const nextCard = nt
-    ? `<div class="next-task"><div class="nt-label">你的下一个任务</div><div class="nt-main">▶️ ${esc(nt.label)}</div><div class="nt-when">${esc(nt.when)}</div></div>`
-    : `<div class="next-task idle"><div class="nt-label">${greet}</div><div class="nt-main">✅ 暂时没有待办任务</div><div class="nt-when">享受当下，或记录点什么</div></div>`;
-
-  const d0 = qDefault(qType);
-  const qLed = `<div class="card"><h3>⚡ 速记账</h3>
-    <input id="q-amt" type="number" inputmode="decimal" placeholder="金额（回车即记）" />
-    <div class="chips" style="margin-top:8px"><span class="chip ${qType === 'out' ? 'on' : ''}" data-act="q-type" data-t="out">支出</span><span class="chip ${qType === 'in' ? 'on' : ''}" data-act="q-type" data-t="in">收入</span></div>
-    <label class="f" style="margin-top:6px">分类</label>
-    <div class="chips q-cat-row" id="q-cat-row">${qCatChips(qType, d0.cat)}</div>
-    <label class="f" style="margin-top:6px">账户</label>
-    <div class="chips q-acct-row" id="q-acct-row">${qAcctChips(d0.acct)}</div>
-    <button class="btn primary block" data-act="q-led" style="margin-top:8px">记一笔</button>
-    <div class="muted small" style="margin-top:6px">💰 净资产 ${fmtMoney(net.net)} · 自动记住上次分类/账户</div>
-  </div>`;
+    ? `<div class="next-task"><div class="nt-label">此刻 · 你的下一个任务</div><div class="nt-main">▶️ ${esc(nt.label)}</div><div class="nt-when">${esc(nt.when)}</div></div>`
+    : `<div class="next-task idle"><div class="nt-label">${greet}</div><div class="nt-main">✅ 暂时没有待办任务</div><div class="nt-when">享受当下，或记一笔账</div></div>`;
 
   const todoHTML = dueTodo.length ? dueTodo.slice(0, 6).map(x => {
     const age = todoAge(x);
@@ -386,17 +352,13 @@ function homeHTML() {
   const habHTML = state.habits.length ? state.habits.map(hb => {
     const done = !!hb.records[td];
     return `<div class="item"><div style="font-size:20px">${esc(hb.emoji || '🌿')}</div><div style="flex:1;min-width:0"><div class="title">${esc(hb.name)}</div><div class="sub">连续 ${calcStreak(hb)} 天</div></div><button class="btn ${done ? '' : 'primary'}" data-act="hc" data-id="${hb.id}">${done ? '已打卡' : '打卡'}</button><button class="icon-btn" data-act="hab-edit" data-id="${hb.id}">✏️</button><button class="icon-btn del" data-act="hab-del" data-id="${hb.id}">✕</button></div>`;
-  }).join('') : emptyHTML('还没有日课（点右上角 ＋ 或去「设置」添加）');
+  }).join('') : emptyHTML('还没有日课（去「设置」添加）');
   const habCard = `<div class="card"><div class="row between"><h3>🌱 今日日课</h3><button class="btn ghost" data-act="open-habit">＋ 日课</button></div>${habHTML}</div>`;
 
   return `
     ${nextCard}
-    <div class="sec-label">记</div>
-    ${qLed}
-    <div class="sec-label">看</div>
     ${todoCard}
-    ${habCard}
-    <button class="fab" data-act="lib-choose">＋</button>`;
+    ${habCard}`;
 }
 
 
@@ -1091,22 +1053,6 @@ function acctOptions(sel) {
   if (!list.length) return '<option value="">（先去账里加账户）</option>';
   return list.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('');
 }
-/* 主页速记账的记忆默认值：按收/支分别记上次用的分类与账户 */
-function qDefault(type) {
-  const d = (state.settings.lastLed && state.settings.lastLed[type]) || {};
-  const cat = (d.cat && CATS[type] && CATS[type].some(c => c[0] === d.cat)) ? d.cat : (CATS[type] && CATS[type][0] && CATS[type][0][0]) || '';
-  const accts = state.accounts.filter(a => !a.isDebt);
-  const acct = (d.acct && accts.some(a => a.id === d.acct)) ? d.acct : (accts[0] && accts[0].id) || '';
-  return { cat, acct };
-}
-function qCatChips(type, sel) {
-  return (CATS[type] || []).map(c => `<span class="chip ${c[0] === sel ? 'on' : ''}" data-act="q-cat" data-cat="${c[0]}">${c[1]} ${c[0]}</span>`).join('');
-}
-function qAcctChips(sel) {
-  const list = state.accounts.filter(a => !a.isDebt);
-  if (!list.length) return '<span class="chip disabled">（先去账里加账户）</span>';
-  return list.map(a => `<span class="chip ${a.id === sel ? 'on' : ''}" data-act="q-acct" data-id="${a.id}">${a.icon} ${esc(a.name)}</span>`).join('');
-}
 function channelChips(sel) {
   return CHANNELS.map(c => `<span class="chip ch-sel ${c === sel ? 'on' : ''}" data-act="ch-sel" data-ch="${c}">${c}</span>`).join('');
 }
@@ -1306,17 +1252,6 @@ const ACTIONS = {
   'jump': el => navTo(el.dataset.tab),
   'nav-me': () => navTo('me'),
   'back': () => navTo(prevView),
-
-  'q-type': el => {
-    qType = el.dataset.t;
-    document.querySelectorAll('[data-act="q-type"]').forEach(c => c.classList.toggle('on', c.dataset.t === qType));
-    const d = qDefault(qType);
-    const cr = document.getElementById('q-cat-row'); if (cr) cr.innerHTML = qCatChips(qType, d.cat);
-    const ar = document.getElementById('q-acct-row'); if (ar) ar.innerHTML = qAcctChips(d.acct);
-  },
-  'q-cat': el => document.querySelectorAll('#q-cat-row .chip').forEach(c => c.classList.toggle('on', c.dataset.cat === el.dataset.cat)),
-  'q-acct': el => document.querySelectorAll('#q-acct-row .chip').forEach(c => c.classList.toggle('on', c.dataset.id === el.dataset.id)),
-  'q-led': () => quickLed(),
 
   'open-habit': () => openHabitForm(null),
   'hab-edit': el => openHabitForm(el.dataset.id),
@@ -1529,10 +1464,6 @@ document.addEventListener('input', e => {
     const inp = document.getElementById('lib-search');
     if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (_) {} }
   }
-});
-/* 主页速记账：金额框按回车即记一笔 */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target && e.target.id === 'q-amt') { e.preventDefault(); quickLed(); }
 });
 
 /* 手机：设置页从左边缘右滑返回（与 iOS 一致，单手退出更顺） */
