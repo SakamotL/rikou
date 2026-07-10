@@ -806,7 +806,7 @@ function ledPanelHTML() {
     return `<div class="led-panel" data-panel="date"><input id="l-date" type="date" value="${dateVal}" /></div>`;
   }
   if (ledFocus === 'channel') {
-    return `<div class="led-panel" data-panel="channel"><div class="chips ch-row">${channelChips(ledChannel)}</div></div>`;
+    return `<div class="led-panel" data-panel="channel"><div class="chips ch-row" id="led-ch-row">${channelChips(ledChannel)}</div></div>`;
   }
   return '';
 }
@@ -1094,31 +1094,38 @@ function evalExpr(expr) {
   return op === '+' ? a + b : a - b;
 }
 function saveLed(stayOpen) {
-  const amt = evalExpr(ledExpr); if (!(amt > 0)) return toast('请输入正确金额');
-  if (!ledAcct) return toast('请选择账户');
-  const chEl = document.querySelector('#led-ch-row .chip.on');
-  const channel = chEl ? chEl.dataset.ch : '';
-  const data = { type: ledType, amount: Math.round(amt * 100) / 100, category: ledCat, account: ledAcct, date: ledDate, note: document.getElementById('l-note').value.trim(), channel };
-  if (sheetCtx.id) {
-    const old = state.ledger.find(x => x.id === sheetCtx.id);
-    if (old) Object.assign(old, data);
-    toast('已保存修改');
-  } else {
-    state.ledger.push(Object.assign({ id: uid() }, data));
-    toast((ledType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
+  try {
+    const amt = evalExpr(ledExpr); if (!(amt > 0)) return toast('请输入正确金额');
+    if (!ledAcct) return toast('请选择账户');
+    const chEl = document.querySelector('#led-ch-row .chip.on');
+    const channel = ledChannel || (chEl ? chEl.dataset.ch : '');
+    const noteEl = document.getElementById('l-note');
+    const note = noteEl ? noteEl.value.trim() : '';
+    const data = { type: ledType, amount: Math.round(amt * 100) / 100, category: ledCat, account: ledAcct, date: ledDate, note, channel };
+    if (sheetCtx.id) {
+      const old = state.ledger.find(x => x.id === sheetCtx.id);
+      if (old) Object.assign(old, data);
+      toast('已保存修改');
+    } else {
+      state.ledger.push(Object.assign({ id: uid() }, data));
+      toast((ledType === 'in' ? '收入 ' : '支出 ') + fmtMoney(amt));
+    }
+    recalcBalances();
+    recordNet(); save();
+    if (stayOpen) {
+      sheetCtx = { kind: 'ledger', id: null };
+      ledExpr = '0';
+      const sb = document.getElementById('sheet-body');
+      if (sb) sb.innerHTML = ledgerForm();
+      toast('继续记下一笔');
+    } else {
+      closeSheet();
+    }
+    render();
+  } catch (err) {
+    console.error('saveLed error:', err);
+    toast('保存失败', err && err.message ? err.message : '请重试');
   }
-  recalcBalances();
-  recordNet(); save();
-  if (stayOpen) {
-    sheetCtx = { kind: 'ledger', id: null };
-    ledExpr = '0';
-    const sb = document.getElementById('sheet-body');
-    if (sb) sb.innerHTML = ledgerForm();
-    toast('继续记下一笔');
-  } else {
-    closeSheet();
-  }
-  render();
 }
 function saveMedia() {
   const title = document.getElementById('m-title').value.trim(); if (!title) return toast('请填写名称');

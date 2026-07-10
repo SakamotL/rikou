@@ -98,7 +98,7 @@ input, select, textarea {
 textarea { resize: vertical; min-height: 96px; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); font-size: 13px; cursor: pointer; color: var(--muted); }
+.chip { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field); font-size: 13px; cursor: pointer; color: var(--muted); touch-action: manipulation; user-select: none; -webkit-tap-highlight-color: transparent; }
 .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .chip.disabled { opacity: .55; cursor: default; }
 .q-cat-row, .q-acct-row { max-height: 116px; overflow: auto; }
@@ -286,7 +286,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .led-note::placeholder { color: var(--muted); }
 .led-amt { font-size: 32px; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .led-quick { display: flex; gap: 0; flex-wrap: nowrap; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--field); }
-.quick-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: 1 1 0; min-width: 0; padding: 7px 4px; color: var(--muted); font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-chip { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: 1 1 0; min-width: 0; padding: 7px 4px; color: var(--muted); font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: manipulation; user-select: none; -webkit-tap-highlight-color: transparent; }
 .quick-chip + .quick-chip { border-left: 1px solid var(--line); }
 .quick-chip:active, .quick-chip.on { background: var(--accent-soft); color: var(--accent); }
 .led-panel { margin-bottom: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
@@ -297,7 +297,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .led-edit-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .led-del { background: none; border: none; color: var(--red); font-size: 13px; cursor: pointer; padding: 4px 8px; }
 .kpad-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-.kpad-4 button { height: 52px; font-size: 22px; font-weight: 600; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.kpad-4 button { height: 52px; font-size: 22px; font-weight: 600; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
 .kpad-4 button:active { background: var(--accent-soft); box-shadow: none; transform: translateY(1px); }
 .kpad-4 button.op { background: var(--field); color: var(--accent); border-color: var(--accent-soft); }
 .kpad-4 button.del { background: var(--field); color: var(--muted); }
