@@ -519,6 +519,25 @@ function trendSeries(led, range) {
   led.forEach(x => { if (x.type === 'out') dm[x.date] = (dm[x.date] || 0) + x.amount; });
   return periodDays().map(d => ({ label: String(new Date(d + 'T00:00:00').getDate()), value: dm[d] || 0, neg: true }));
 }
+/* 最近7天（含今天往前6天）每日支出；跨周/跨月用 M/D 标注，避免看错是哪天 */
+function last7Dates() {
+  const out = [];
+  const today = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    out.push(todayStr(d));
+  }
+  return out;
+}
+function trendSeries7(led) {
+  const dm = {};
+  led.forEach(x => { if (x.type === 'out') dm[x.date] = (dm[x.date] || 0) + x.amount; });
+  return last7Dates().map(d => {
+    const dt = new Date(d + 'T00:00:00');
+    return { label: (dt.getMonth() + 1) + '/' + dt.getDate(), value: dm[d] || 0, neg: true };
+  });
+}
 function barChartSVG(series, h) {
   h = h || 120;
   if (!series.length) return '<div class="muted small">暂无数据</div>';
@@ -611,7 +630,7 @@ function moneyOverviewHTML() {
     </div>
     <div class="muted small" style="margin-top:8px">💰 净资产 ${fmtMoney(net0.net)}</div>
   </div>`;
-  const trend = `<div class="card"><h3>📈 ${lbl}每日支出</h3>${barChartSVG(trendSeries(led, state.settings.moneyRange || 'month'), 120)}</div>`;
+  const trend = `<div class="card"><h3>📈 近7日每日支出</h3>${barChartSVG(trendSeries7(state.ledger), 120)}</div>`;
   const groups = groupByDate(led);
   const ledList = groups.length ? groups.map(g => {
     const parts = [];
@@ -663,7 +682,7 @@ function moneyStatsHTML() {
       <div><div class="num">${fmtMoney(inc - out)}</div><div class="muted small">结余</div></div>
       <div><div class="num">${fmtMoney(avg)}</div><div class="muted small">日均支出</div></div>
     </div></div>`;
-  const daily = `<div class="card"><h3>每日统计（${lbl}支出）</h3>${barChartSVG(trendSeries(led, state.settings.moneyRange || 'month'), 130)}</div>`;
+  const daily = `<div class="card"><h3>📈 近7日每日支出</h3>${barChartSVG(trendSeries7(state.ledger), 130)}</div>`;
   const cats = catBreakdown(led);
   const donut = buildDonut(cats.map(c => ({ label: c.label, value: c.value, color: c.color })));
   const rank = cats.length ? cats.map((c, i) => `<div class="rank-item"><span class="rank-no">${i + 1}</span><span class="rank-name">${esc(c.label)}</span><span class="rank-pct">${Math.round(c.pct * 100)}%</span><span class="neg" style="font-weight:700">${fmtMoney(c.value)}</span></div>`).join('') : emptyHTML('这段期间还没有支出');
