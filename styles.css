@@ -101,6 +101,7 @@ body {
 .icon-btn.del { color: var(--red); opacity: .7; }
 .icon-btn.del:hover { opacity: 1; }
 .me-btn.active { color: var(--accent); }
+#themeToggle { margin-left: auto; }
 .q-field { margin-top: 8px; }
 .pane { min-width: 0; }
 .pane-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 10px; font-size: 15px; font-weight: 700; color: var(--text); position: sticky; top: 0; background: var(--bg); z-index: 5; }
