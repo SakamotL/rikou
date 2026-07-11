@@ -428,7 +428,8 @@ function homeHTML() {
     ${quickCard}
     ${recent.length ? recentCard : ''}
     ${todoCard}
-    ${habCard}`;
+    ${habCard}
+    <button class="fab" data-act="open-led" title="记账">＋</button>`;
 }
 
 
