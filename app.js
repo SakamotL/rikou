@@ -663,7 +663,7 @@ function moneyCalendarHTML() {
     const cls = ds === today ? 'cal-cell today' : 'cal-cell';
     const lunar = lunarLabel(ds);
     const amt = v ? `<div class="cal-amt ${v < 0 ? 'neg' : 'pos'}">${fmtMoney(Math.abs(v)).replace('¥', '')}</div>` : '';
-    cells.push(`<div class="${cls}"><div class="cal-day">${d}</div>${lunar ? `<div class="cal-lunar">${lunar}</div>` : ''}${amt}</div>`);
+    cells.push(`<div class="${cls}" data-act="day-led" data-date="${ds}"><div class="cal-day">${d}</div>${lunar ? `<div class="cal-lunar">${lunar}</div>` : ''}${amt}</div>`);
   }
   const monthLed = state.ledger.filter(x => x.date.startsWith(a.slice(0, 7)));
   const mInc = monthLed.filter(x => x.type === 'in').reduce((s, x) => s + x.amount, 0);
@@ -1033,14 +1033,27 @@ function openPriceForm(id, presetName) {
   if (editing) setTimeout(() => { const set = (i, v) => { const el = document.getElementById(i); if (el) el.value = v || ''; }; set('p-name', editing.name); set('p-price', editing.price); set('p-date', editing.date); set('p-note', editing.note); const cr = document.getElementById('p-ch-row'); if (cr && editing.store) cr.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.ch === editing.store)); }, 0);
   else if (presetName) setTimeout(() => { const el = document.getElementById('p-name'); if (el) el.value = presetName; }, 0);
 }
-function openLedgerForm(id) {
+function openLedgerForm(id, presetDate) {
   const editing = id ? state.ledger.find(l => l.id === id) : null;
   ledFocus = null;
   if (editing) { ledType = editing.type; ledCat = editing.category; ledAcct = editing.account; ledExpr = String(editing.amount); ledChannel = editing.channel || ''; ledDate = editing.date; }
-  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; ledDate = todayStr(); }
+  else { ledType = 'out'; ledCat = CATS.out[0][0]; ledAcct = state.accounts[0] && state.accounts[0].id; ledExpr = '0'; ledChannel = ''; ledDate = presetDate || todayStr(); }
   sheetCtx = { kind: 'ledger', id };
   openSheet('记账' + (id ? ' · 编辑' : ' · 新增'), ledgerForm());
   if (editing) setTimeout(() => { const n = document.getElementById('l-note'); if (n) n.value = editing.note || ''; }, 0);
+}
+function openDayLedger(date) {
+  const items = state.ledger.filter(x => x.date === date).sort((a, b) => b.id.localeCompare(a.id));
+  const daySum = items.reduce((s, x) => s + (x.type === 'in' ? x.amount : -x.amount), 0);
+  const list = items.length ? items.map(x => {
+    const a = state.accounts.find(ac => ac.id === x.account) || { name: '未知账户' };
+    const subParts = [x.channel ? esc(x.channel) : '', x.note ? esc(x.note) : ''].filter(Boolean);
+    const subText = subParts.length ? subParts.join(' · ') : '无备注';
+    return `<div class="item" data-act="open-led" data-id="${x.id}" style="cursor:pointer"><div style="flex:1"><div class="title">${esc(x.category)} <span class="muted small">· ${esc(a.name)}</span></div><div class="sub">${subText}</div></div><div class="${x.type === 'in' ? 'pos' : 'neg'}" style="font-weight:700">${x.type === 'in' ? '+' : '-'}${fmtMoney(x.amount)}</div><button class="icon-btn del" data-act="del-led" data-id="${x.id}">✕</button></div>`;
+  }).join('') : `<div class="muted small" style="padding:12px 0;text-align:center">${date} 还没有账单</div>`;
+  const head = `<div class="row between" style="margin-bottom:8px"><span class="muted small">${date} · 共 ${items.length} 笔</span><span class="${daySum >= 0 ? 'pos' : 'neg'}">${daySum >= 0 ? '+' : ''}${fmtMoney(Math.abs(daySum))}</span></div>`;
+  const addBtn = `<button class="btn primary block" style="margin-top:12px" data-act="day-add-led" data-date="${date}">＋ 记一笔</button>`;
+  openSheet(dayLabel(date) + ' · 账单', `<div class="card">${head}${list}</div>${addBtn}`);
 }
 function openMediaForm(id) {
   const editing = id ? state.media.find(m => m.id === id) : null;
@@ -1358,6 +1371,8 @@ const ACTIONS = {
   'open-debt-edit': el => openDebtForm(el.dataset.id),
   'del-debt': el => { const id = el.dataset.id; askConfirm('删除确认', '删除这笔债务？', () => { state.accounts = state.accounts.filter(a => a.id !== id); save(); render(); }); },
   'open-led': el => openLedgerForm(el.dataset.id),
+  'day-led': el => openDayLedger(el.dataset.date),
+  'day-add-led': el => openLedgerForm(null, el.dataset.date),
   'open-acct-edit': el => openAccountDetail(el.dataset.id),
   'edit-acct': el => openAccountForm(el.dataset.id),
   'recalc-balances': () => { recalcBalances(); recordNet(); save(); render(); toast('已按全部流水重新校准账户余额'); },
