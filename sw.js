@@ -1,5 +1,5 @@
 // 日课 PWA Service Worker —— 仅用于离线缓存静态资源，数据存于浏览器本地
-const CACHE = 'rikou-v1';
+const CACHE = 'rikou-v2';
 const FILES = ['index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', e => {
