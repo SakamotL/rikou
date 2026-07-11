@@ -258,8 +258,8 @@ function todoAge(t) {
 }
 
 /* ---------- 全局状态 ---------- */
-let view = 'today';
-let prevView = 'today';
+let view = 'money';
+let prevView = 'money';
 let libType = 'all';
 let libSearch = '';
 let sheetCtx = null;
@@ -303,10 +303,7 @@ function render() {
   applyTheme();
   document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   const brandEl = document.getElementById('brandEl');
-  if (brandEl) {
-    const L = { today: '主页', money: '账', notes: '记录', me: '设置' };
-    brandEl.textContent = (window.innerWidth >= 760 || view === 'today') ? '日迹' : (L[view] || '日迹');
-  }
+  if (brandEl) brandEl.textContent = view === 'me' ? '设置' : '日迹';
   const ttEl = document.getElementById('themeToggle');
   if (ttEl) ttEl.textContent = effTheme() === 'dark' ? '🌙' : '☀️';
   document.querySelectorAll('.tab').forEach(t => {
