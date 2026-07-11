@@ -456,14 +456,13 @@ function shiftAnchor(dir) {
 function periodLabel() {
   const r = state.settings.moneyRange || 'month';
   const a = periodAnchor(), d = new Date(a + 'T00:00:00');
-  if (r === 'year') return String(d.getFullYear());
+  if (r === 'year') return d.getFullYear() + '年';
   if (r === 'week') {
     const st = new Date(d); st.setDate(st.getDate() - ((st.getDay() + 6) % 7));
     const en = new Date(st); en.setDate(en.getDate() + 6);
-    const f = n => String(n).padStart(2, '0');
-    return `${st.getMonth() + 1}.${f(st.getDate())}–${en.getMonth() + 1}.${f(en.getDate())}`;
+    return `${st.getMonth() + 1}/${st.getDate()}–${en.getMonth() + 1}/${en.getDate()}`;
   }
-  return a.slice(0, 7);
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
 }
 function periodDays() {
   const r = state.settings.moneyRange || 'month';
@@ -637,7 +636,11 @@ function moneyOverviewHTML() {
     if (g.outSum) parts.push('支:' + fmtMoney(g.outSum));
     if (g.inSum) parts.push('收:' + fmtMoney(g.inSum));
     const head = `${dayLabel(g.date)}　${parts.join('　')}`;
-    const items = g.items.map(x => `<div class="item" data-act="open-led" data-id="${x.id}"><div style="flex:1"><div class="title">${esc(x.category)} <span class="muted small">· ${esc((acct(x.account) || {}).name || '')}</span>${x.note ? `<span class="muted small"> · ${esc(x.note)}</span>` : ''}</div><div class="sub">${x.date}</div></div><div class="${x.type === 'in' ? 'pos' : 'neg'}" style="font-weight:700">${x.type === 'in' ? '+' : '-'}${fmtMoney(x.amount)}</div><button class="icon-btn del" data-act="del-led" data-id="${x.id}">✕</button></div>`).join('');
+    const items = g.items.map(x => {
+      const subParts = [x.channel ? esc(x.channel) : '', x.note ? esc(x.note) : ''].filter(Boolean);
+      const subText = subParts.length ? subParts.join(' · ') : '无备注';
+      return `<div class="item" data-act="open-led" data-id="${x.id}"><div style="flex:1"><div class="title">${esc(x.category)} <span class="muted small">· ${esc((acct(x.account) || {}).name || '')}</span></div><div class="sub">${subText}</div></div><div class="${x.type === 'in' ? 'pos' : 'neg'}" style="font-weight:700">${x.type === 'in' ? '+' : '-'}${fmtMoney(x.amount)}</div><button class="icon-btn del" data-act="del-led" data-id="${x.id}">✕</button></div>`;
+    }).join('');
     return `<div class="day-group"><div class="day-head">${head}</div>${items}</div>`;
   }).join('') : emptyHTML('这段期间还没有账单');
   const ledCard = `<div class="card"><div class="row between"><h3>🧾 记账</h3><button class="btn ghost" data-act="lib-add" data-t="ledger">＋ 记一笔</button></div>${ledList}</div>`;
