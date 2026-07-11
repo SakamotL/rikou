@@ -685,7 +685,7 @@ function moneyStatsHTML() {
       <div><div class="num">${fmtMoney(inc - out)}</div><div class="muted small">结余</div></div>
       <div><div class="num">${fmtMoney(avg)}</div><div class="muted small">日均支出</div></div>
     </div></div>`;
-  const daily = `<div class="card"><h3>📈 近7日每日支出</h3>${barChartSVG(trendSeries7(state.ledger), 130)}</div>`;
+  const daily = `<div class="card"><h3>📈 ${lbl}趋势</h3>${barChartSVG(trendSeries(led, state.settings.moneyRange || 'month'), 130)}</div>`;
   const cats = catBreakdown(led);
   const donut = buildDonut(cats.map(c => ({ label: c.label, value: c.value, color: c.color })));
   const rank = cats.length ? cats.map((c, i) => `<div class="rank-item"><span class="rank-no">${i + 1}</span><span class="rank-name">${esc(c.label)}</span><span class="rank-pct">${Math.round(c.pct * 100)}%</span><span class="neg" style="font-weight:700">${fmtMoney(c.value)}</span></div>`).join('') : emptyHTML('这段期间还没有支出');
