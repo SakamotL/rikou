@@ -445,6 +445,20 @@ function priceProducts() {
 }
 /* ====== 账：时间维度与子视图 ====== */
 function periodAnchor() { return state.settings.moneyAnchor || todayStr(); }
+function normalizeMoneyAnchor() {
+  const r = state.settings.moneyRange || 'month';
+  const a = state.settings.moneyAnchor || todayStr();
+  const now = todayStr();
+  const weekStart = s => {
+    const d = new Date(s + 'T00:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return todayStr(d);
+  };
+  const stale = r === 'year' ? a.slice(0, 4) !== now.slice(0, 4)
+    : r === 'month' ? a.slice(0, 7) !== now.slice(0, 7)
+    : weekStart(a) !== weekStart(now);
+  if (stale) { state.settings.moneyAnchor = todayStr(); save(); }
+}
 function shiftAnchor(dir) {
   const r = state.settings.moneyRange || 'month';
   const d = new Date(periodAnchor() + 'T00:00:00');
@@ -709,6 +723,7 @@ function moneyNetworthHTML() {
   return hero + acctCardHTML() + debtCardHTML();
 }
 function moneyHTML() {
+  normalizeMoneyAnchor();
   const sub = state.settings.moneySub || 'overview';
   const fns = { overview: [moneyOverviewHTML, true], calendar: [moneyCalendarHTML, false], stats: [moneyStatsHTML, true], networth: [moneyNetworthHTML, false] };
   const fn = (fns[sub] || fns.overview);
