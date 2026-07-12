@@ -31,6 +31,15 @@ const CONTENT_TYPES = [
 ];
 const CHANNELS = ['天猫', '淘宝', '京东', '拼多多', '抖音', '美团', '唯品会', '线下', '其他'];
 
+/* ---------- Web Push 配置（部署后端后填写，也可在设置页填） ---------- */
+const PUSH = {
+  // 你的 Cloudflare Worker 地址，部署后从 PUSH_SETUP.md 获取
+  workerUrl: '',
+  // VAPID 公钥，部署时由 `npx web-push generate-vapid-keys` 生成后填入
+  vapidPublicKey: ''
+};
+
+
 /* ---------- 数据层 ---------- */
 function defaults() {
   return {
@@ -796,7 +805,15 @@ function renderMe() {
     <div class="card">
       <h3>⚙️ 设置</h3>
       <div class="theme-row"><div><div class="title">外观</div><div class="sub muted small">白天 / 黑夜 / 跟随系统</div></div>${themeSeg}</div>
-      <div class="item" style="border:none;padding:12px 0"><div style="flex:1"><div class="title">桌面通知</div><div class="sub muted small">${notifTxt} · 用于提醒弹窗</div></div><button class="btn ${notifState === 'granted' ? '' : 'primary'}" data-act="enable-notif">${notifState === 'granted' ? '已开启' : '开启'}</button></div>
+      <div class="item" style="border:none;padding:12px 0"><div style="flex:1"><div class="title">桌面通知</div><div class="sub muted small">${notifTxt} · 页面打开时弹窗（兜底）</div></div><button class="btn ${notifState === 'granted' ? '' : 'primary'}" data-act="enable-notif">${notifState === 'granted' ? '已开启' : '开启'}</button></div>
+    </div>
+    <div class="card">
+      <h3>🔔 推送通知（手机息屏提醒）</h3>
+      <p class="muted small">开通后，即使锁屏 / 切到别的 App 也会收到系统提醒。需先部署推送后端（见 PUSH_SETUP.md）；iOS 需 16.4+ 且把本 App 添加到主屏幕。</p>
+      <label class="f">推送服务地址</label><input id="push-url" value="${esc(pushWorkerUrl())}" placeholder="https://rikou-push.xxx.workers.dev" style="margin-bottom:8px" />
+      <label class="f">VAPID 公钥</label><input id="push-key" value="${esc(pushVapid())}" placeholder="BHx... 一长串" style="margin-bottom:8px" />
+      <button class="btn block" data-act="save-push-cfg" style="margin-bottom:10px">保存配置</button>
+      <div class="item" style="border:none;padding:4px 0"><div style="flex:1"><div class="title">推送状态</div><div class="sub muted small">${pushStatusText()}</div></div><button class="btn ${localStorage.getItem('rikou_push_sub') ? '' : 'primary'}" data-act="enable-push">${localStorage.getItem('rikou_push_sub') ? '已开启' : '开启推送'}</button></div>
       <label class="f">每月预算（0 = 不设置）</label><input id="set-budget" type="number" value="${budget}" data-act="set-budget" />
     </div>
     <div class="card">
@@ -1261,7 +1278,7 @@ function saveTodo() {
   const data = { title, note: document.getElementById('t-note').value.trim(), due: document.getElementById('t-due').value || '', repeat: document.getElementById('t-repeat').value, remind: document.getElementById('t-remind').checked, lastReminded: '' };
   if (sheetCtx.id) { const t = state.todos.find(x => x.id === sheetCtx.id); if (t) Object.assign(t, data); toast('已保存修改'); }
   else { state.todos.push(Object.assign({ id: uid(), done: false }, data)); toast('已添加待办', title); }
-  save(); closeSheet(); render();
+  save(); closeSheet(); render(); syncReminders();
 }
 function saveRem() {
   const name = document.getElementById('r-name').value.trim(); if (!name) return toast('请填写名称');
@@ -1270,7 +1287,7 @@ function saveRem() {
   const data = { name, time: document.getElementById('r-time').value || '07:00', repeat, days, note: document.getElementById('r-note').value.trim(), enabled: true, lastFired: '' };
   if (sheetCtx.id) { const r = state.reminders.find(x => x.id === sheetCtx.id); if (r) Object.assign(r, data); toast('已保存修改'); }
   else { state.reminders.push(Object.assign({ id: uid() }, data)); toast('已添加提醒', name); }
-  save(); closeSheet(); render();
+  save(); closeSheet(); render(); syncReminders();
 }
 function saveHab() {
   const name = document.getElementById('h-name').value.trim(); if (!name) return toast('请填写名称');
@@ -1315,7 +1332,7 @@ function delByType(type, id) {
   else if (type === 'todo') { msg = '删除这个待办？'; act = () => { state.todos = state.todos.filter(x => x.id !== id); }; }
   else if (type === 'reminder') { msg = '删除这个提醒？'; act = () => { state.reminders = state.reminders.filter(x => x.id !== id); }; }
   if (!act) return;
-  askConfirm('删除确认', msg, () => { act(); save(); render(); });
+  askConfirm('删除确认', msg, () => { act(); save(); render(); syncReminders(); });
 }
 function delLed(id) {
   askConfirm('删除确认', '删除这笔记录？账户余额会重新按流水计算。', () => {
@@ -1351,6 +1368,66 @@ function fireNote(title, sub, tag) {
   try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body: sub, tag }); } catch (e) {}
   const ch = document.getElementById('chime'); if (ch) { try { ch.currentTime = 0; ch.play(); } catch (e) {} }
 }
+
+/* ================= Web Push（手机息屏推送，需后端） ================= */
+function pushSupported() { return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+function pushWorkerUrl() { const p = state.settings && state.settings.push; return (p && p.workerUrl) || (typeof PUSH !== 'undefined' ? PUSH.workerUrl : '') || ''; }
+function pushVapid() { const p = state.settings && state.settings.push; return (p && p.vapidKey) || (typeof PUSH !== 'undefined' ? PUSH.vapidPublicKey : '') || ''; }
+function pushConfigured() { return !!(pushWorkerUrl() && pushVapid()); }
+function clientId() { let id = localStorage.getItem('rikou_cid'); if (!id) { id = uid() + Date.now().toString(36); localStorage.setItem('rikou_cid', id); } return id; }
+function pushStatusText() {
+  if (!pushSupported()) return '当前浏览器不支持（需 HTTPS + 添加到主屏幕）';
+  if (!pushConfigured()) return '未配置（请填写服务地址与 VAPID 公钥）';
+  if (localStorage.getItem('rikou_push_sub')) return '已开启 ✓ · 息屏也会提醒';
+  return '已配置，点「开启推送」订阅';
+}
+async function savePushCfg() {
+  const url = (document.getElementById('push-url') || {}).value || '';
+  const key = (document.getElementById('push-key') || {}).value || '';
+  state.settings.push = { workerUrl: url.trim(), vapidKey: key.trim() };
+  save(); renderMe();
+  toast('已保存推送配置', pushConfigured() ? '现在可以开启推送了' : '地址或公钥还为空');
+}
+async function subscribePush() {
+  if (!pushSupported()) return toast('当前浏览器不支持推送');
+  if (!pushConfigured()) return toast('请先填写推送服务地址与 VAPID 公钥');
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') return toast('通知权限被拒绝', '请在浏览器设置里允许通知');
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushVapid() });
+    const r = await fetch(pushWorkerUrl() + '/api/sub', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: clientId(), subscription: sub })
+    });
+    if (!r.ok) throw new Error('上报订阅失败(' + r.status + ')');
+    localStorage.setItem('rikou_push_sub', JSON.stringify(sub));
+    state.settings.pushSubscribed = true; save();
+    syncReminders(); renderMe();
+    toast('推送已开启', '到点会推送到本机');
+  } catch (e) {
+    console.error(e);
+    toast('订阅失败', e && e.message ? e.message : '检查服务地址/公钥');
+  }
+}
+async function syncReminders() {
+  const url = pushWorkerUrl();
+  const raw = localStorage.getItem('rikou_push_sub');
+  if (!url || !raw) return; // 未配置或未订阅，跳过
+  let sub; try { sub = JSON.parse(raw); } catch (e) { return; }
+  const payload = {
+    clientId: clientId(),
+    subscription: sub,
+    tz: -new Date().getTimezoneOffset(), // 分钟，东八区为 +480
+    reminders: state.reminders.filter(r => r.enabled).map(r => ({ id: r.id, name: r.name, note: r.note || '', time: r.time, todayMatch: shouldFireToday(r), lastFired: r.lastFired || '' })),
+    todos: state.todos.filter(t => !t.done && t.remind).map(t => ({ id: t.id, title: t.title, due: t.due || '', repeat: t.repeat || 'none', lastReminded: t.lastReminded || '' }))
+  };
+  try {
+    await fetch(url + '/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  } catch (e) { /* 静默失败，下次保存再同步 */ }
+}
+
 
 /* ================= 主题 ================= */
 function effTheme() {
@@ -1475,6 +1552,8 @@ const ACTIONS = {
   'save-debt': () => saveDebt(),
 
   'enable-notif': () => { if (!('Notification' in window)) return toast('当前环境不支持通知'); Notification.requestPermission().then(p => { state.settings.notif = p === 'granted'; save(); renderMe(); toast(p === 'granted' ? '通知已开启' : '未授权', p === 'granted' ? '到点会弹窗提醒' : '可在浏览器设置里开启'); }); },
+  'save-push-cfg': () => savePushCfg(),
+  'enable-push': () => subscribePush(),
   'set-theme': el => { state.settings.theme = el.dataset.t; save(); render(); },
   'toggle-theme': () => {
     const cur = effTheme();

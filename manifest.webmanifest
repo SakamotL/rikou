@@ -1,6 +1,6 @@
 {
-  "name": "日课 · 个人生活系统",
-  "short_name": "日课",
+  "name": "日迹 · 个人生活系统",
+  "short_name": "日迹",
   "description": "完全个人的生活助手：提醒、长期主义打卡、日记、记账",
   "start_url": "index.html",
   "display": "standalone",

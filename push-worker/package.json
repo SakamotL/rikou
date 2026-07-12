@@ -1,0 +1,10 @@
+{
+  "name": "rikou-push-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "日迹 Web Push 后端（Cloudflare Worker）",
+  "main": "worker.js",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

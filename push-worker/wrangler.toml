@@ -1,0 +1,15 @@
+name = "rikou-push"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# KV 命名空间（用于存储订阅与提醒）。先 `wrangler kv namespace create PUSH_KV` 得到 id 填入下方
+[[kv_namespaces]]
+binding = "PUSH_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+# VAPID 密钥建议用 secret：`wrangler secret put VAPID_PUBLIC` / `wrangler secret put VAPID_PRIVATE`
+# 此处占位仅为本地/快速部署，正式请用 secret
+[vars]
+VAPID_PUBLIC = "REPLACE_WITH_VAPID_PUBLIC_KEY"
+VAPID_PRIVATE = "REPLACE_WITH_VAPID_PRIVATE_KEY"
